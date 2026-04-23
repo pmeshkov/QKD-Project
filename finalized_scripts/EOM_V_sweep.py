@@ -7,14 +7,14 @@ from datetime import datetime
 
 # Hardware Parameters
 device_name = "Dev1"
-ao_channel = f"{device_name}/ao0"       
+ao_channel = f"{device_name}/ao1"       
 pfi_pin_0 = f"/{device_name}/PFI1"
 pfi_pin_1 = f"/{device_name}/PFI2"
 
 # Sweep Parameters
-START_V = 0.0
+START_V = -200.0
 STOP_V = 200.0
-STEP_V = 1.0
+STEP_V = 10.0
 DWELL_TIME_SEC = 2.0
 HV_GAIN = 20.0
 

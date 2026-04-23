@@ -12,6 +12,10 @@ Here is a powershell command to activate conda prompt for convenient management 
 
     cmd.exe /K "C:\Users\nanometa\miniconda3\Scripts\activate.bat"
 
+Once you run that command, the terminal should look like:
+
+    (base) C:\Users\nanometa\Documents\QKD_Code>
+
 Here is a conda prompt command for listing all the installed conda environments
 
     conda info --env
@@ -21,6 +25,9 @@ Here is a command to activate a given conda environment
     conda activate [your environment]
 
     ex. conda activate niDaqENV
+
+Once you've activated your environment, the terminal should look like:
+    ([your environment]) C:\Users\nanometa\Documents\QKD_Code>
 
 Here is a command to run a python script in terminal
 note: make sure you are in the correct directory

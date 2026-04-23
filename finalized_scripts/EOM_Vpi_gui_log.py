@@ -8,7 +8,7 @@ import time
 
 # Hardware Parameters
 device_name = "Dev1"
-ao_channel = f"{device_name}/ao0"       
+ao_channel = f"{device_name}/ao1"       
 pfi_pin_0 = f"/{device_name}/PFI1"
 pfi_pin_1 = f"/{device_name}/PFI2"
 
@@ -26,7 +26,7 @@ rate_ctr1 = collections.deque([0] * window_size, maxlen=window_size)
 
 buffer_0 = collections.deque()
 buffer_1 = collections.deque()
-AVERAGING_WINDOW_SEC = 1.0
+AVERAGING_WINDOW_SEC = 0.5
 
 plt.ion()
 fig, ax = plt.subplots()
