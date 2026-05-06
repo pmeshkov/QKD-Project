@@ -10,7 +10,7 @@ import nidaqmx.system
 nidaqmx.system.Device("Dev1").reset_device()
 # Parameters
 sample_rate = 1000000       
-frequency = 1000          
+frequency = 1          
 amplitude = 5.0            
 offset = 0.0               
 samples_per_cycle = int(sample_rate / frequency)

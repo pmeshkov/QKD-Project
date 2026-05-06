@@ -15,7 +15,7 @@ pfi_pin_1 = f"/{device_name}/PFI2"
 START_V = -200.0
 STOP_V = 200.0
 STEP_V = 10.0
-DWELL_TIME_SEC = 2.0
+DWELL_TIME_SEC = 1.0
 HV_GAIN = 20.0
 
 # Generate timestamped filename
@@ -101,7 +101,7 @@ with nidaqmx.Task() as ao_task, nidaqmx.Task() as ci_task0, nidaqmx.Task() as ci
                 # Increment step
                 current_target_v += STEP_V
 
-        print("\nSweep Complete.")
+        print(f"\nSweep Complete, saved to {csv_filename}")
                 
     except KeyboardInterrupt:
         print("\nSweep interrupted by user.")
