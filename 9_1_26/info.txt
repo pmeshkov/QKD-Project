@@ -1,0 +1,57 @@
+Experimental measurement for this directory:
+
+EOM operating in amplitude modulation scheme:
+
+Source => HWP => PBS (for attenuation) LP (vertical) =>
+=> EOM => LP (vertical) => SPD
+
+Figure_001.png:
+- corresponds to 9_1_26\Vpi_Sweep_20260901_175424.csv (not same measurement, but identical setup)
+- taken with heavily attenuated Red fault finder laser
+- taken with a DCOffset of 2.2*20V
+- it seems like the HVA maxes out at 210 V (strange kink at V = -200)
+- note, voltage has a total negative sign due to amplifier inversion
+
+Figure_002.png:
+- corresponds to 9_1_26\Vpi_Sweep_20260901_181059.csv
+- taken with a DCOffset of 0V
+- otherwise same as Figure_001.png
+
+Figure_003.png:
+- source replaced with SPE (no attenuators)
+- corresponds to 9_1_26\Vpi_Sweep_20260901_182027.csv
+- taken with a DCOffset of 0V
+- otherwise same as everything else
+
+Figure_004.png:
+- source replaced with SPE (no attenuators)
+- corresponds to 9_1_26\Vpi_Sweep_20260901_183523.csv
+- taken with a DCOffset of 0V
+- otherwise same as everything else
+
+Figure_005.png:
+- source replaced with SPE (no attenuators)
+- 633 long pass + 650 short pass = 633-650 nm bandpass (17nm)
+- taken with a DCOffset of 0V
+- otherwise same as everything else
+
+Figure_006.png:
+- source replaced with SPE (no attenuators)
+- 633 long pass + 650 short pass = 633-650 nm bandpass (17nm)
+- taken with a DCOffset of 0V
+- otherwise same as everything else
+- 2nd polarizer rotated 90 degrees WRT measurement 005
+
+Figure_007:
+- source replaced with SPE (no attenuators)
+- 590 nm bandpass 10 nm FWHM filter
+- taken with a DCOffset of 0V
+- otherwise same as everything else
+
+other notes:
+- emitter counts roughly 2*10^6 THE WHOLE TIME
+- single mode fiber poorly aligned
+- single mode fiber had to be adjusted with new filter 
+(chromatic abberation)
+- g2 ~0.5
+- laser power used ~150 uW

@@ -9,9 +9,9 @@ import nidaqmx.system
 # Resets the hardware and clears all reserved resources
 nidaqmx.system.Device("Dev1").reset_device()
 # Parameters
-sample_rate = 1000000       
-frequency = 1          
-amplitude = 5.0            
+sample_rate = 1000      
+frequency = 0.3          
+amplitude = 8.0            
 offset = 0.0               
 samples_per_cycle = int(sample_rate / frequency)
 num_cycles = 10            

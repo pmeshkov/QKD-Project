@@ -61,7 +61,7 @@ with nidaqmx.Task() as ao_task, nidaqmx.Task() as ci_task0, nidaqmx.Task() as ci
             
             # Generate voltage sequence
             current_target_v = START_V
-            
+            firstrun = True
             while current_target_v <= STOP_V:
                 # 1. Calculate and clamp DAQ voltage
                 daq_volt = current_target_v / HV_GAIN
@@ -71,7 +71,12 @@ with nidaqmx.Task() as ao_task, nidaqmx.Task() as ci_task0, nidaqmx.Task() as ci
                 ao_task.write(clamped_daq_volt)
                 
                 # Tiny sleep to allow hardware to settle before reading counters
-                time.sleep(0.01) 
+                if firstrun:
+                    # Peter added, 5 seconds of sleep time before the first voltage 
+                    # reading, to allow the EOM voltage to stabilize properly
+                    time.sleep(5)
+                    firstrun = False
+                time.sleep(0.1) 
                 
                 # 3. Read initial counts and timestamp
                 t_start = time.perf_counter()
@@ -110,3 +115,33 @@ with nidaqmx.Task() as ao_task, nidaqmx.Task() as ci_task0, nidaqmx.Task() as ci
         # Ensure voltage is safely returned to 0V
         print("Zeroing AO output...")
         ao_task.write(0.0)
+
+import matplotlib.pyplot as plt
+
+# Lists to hold data for plotting
+target_voltages = []
+pfi1_rates = []
+pfi2_rates = []
+
+# Read back the saved CSV file to plot the data
+with open(csv_filename, mode='r') as file:
+    reader = csv.DictReader(file)
+    for row in reader:
+        target_voltages.append(float(row["Target_Voltage_V"]))
+        pfi1_rates.append(float(row["PFI1_Rate_Hz"]))
+        pfi2_rates.append(float(row["PFI2_Rate_Hz"]))
+
+# Create the plot
+plt.figure(figsize=(10, 6))
+plt.plot(target_voltages, pfi1_rates, label='PFI1 (ctr0)', marker='o', linestyle='-')
+plt.plot(target_voltages, pfi2_rates, label='PFI2 (ctr1)', marker='s', linestyle='--')
+
+plt.title(f"EOM Voltage Sweep - {timestamp}")
+plt.xlabel("Target Voltage (V)")
+plt.ylabel("Count Rate (Hz)")
+plt.grid(True, which='both', linestyle='--', alpha=0.7)
+plt.legend()
+plt.tight_layout()
+
+# Display the interactive window
+plt.show()

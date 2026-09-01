@@ -4,7 +4,8 @@ import sys
 import os
 
 # Update this to match your most recent sweep file
-filename = "Vpi_Sweep_20260518_181009.csv"
+print(os.listdir())
+filename = "C:\\Users\\nanometa\\Documents\\QKD_Code\\9_1_26\\Vpi_Sweep_20260901_183523.csv"
 
 # Check if file exists before attempting to load
 if not os.path.exists(filename):
