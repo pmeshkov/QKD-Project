@@ -100,6 +100,7 @@ with nidaqmx.Task() as ao_task, nidaqmx.Task() as ci_task0, nidaqmx.Task() as ci
     def submit_volt_0(text):
         try:
             target_hv = float(text)
+            # inverting here, see note below
             daq_volt = -target_hv / HV_GAIN 
             clamped_daq_volt = max(-10.0, min(10.0, daq_volt))
             
@@ -108,13 +109,18 @@ with nidaqmx.Task() as ao_task, nidaqmx.Task() as ci_task0, nidaqmx.Task() as ci
             
             actual_hv_0 = current_daq_volts[0] * HV_GAIN
             actual_hv_1 = current_daq_volts[1] * HV_GAIN
-            ax.set_title(f"EOM0 Bias: {actual_hv_0:.1f}V | EOM1 Bias: {actual_hv_1:.1f}V")
+
+            # Peter Note 9/2/26
+            # The amplifier seemingly inverts the voltage. We are inverting to reverse this.
+            # Thus, the EOM Bias shown in the GUI should be multiplied by -1.
+            ax.set_title(f"EOM0 Bias: {-actual_hv_0:.1f}V | EOM1 Bias: {-actual_hv_1:.1f}V")
         except ValueError:
             ax.set_title("Error: Invalid Input for EOM0. Hardware state unchanged.")
 
     def submit_volt_1(text):
         try:
             target_hv = float(text)
+            # inverting here, see note below
             daq_volt = -target_hv / HV_GAIN 
             clamped_daq_volt = max(-10.0, min(10.0, daq_volt))
             
@@ -123,7 +129,11 @@ with nidaqmx.Task() as ao_task, nidaqmx.Task() as ci_task0, nidaqmx.Task() as ci
             
             actual_hv_0 = current_daq_volts[0] * HV_GAIN
             actual_hv_1 = current_daq_volts[1] * HV_GAIN
-            ax.set_title(f"EOM0 Bias: {actual_hv_0:.1f}V | EOM1 Bias: {actual_hv_1:.1f}V")
+
+            # Peter Note 9/2/26
+            # The amplifier seemingly inverts the voltage. We are inverting to reverse this.
+            # Thus, the EOM Bias shown in the GUI should be multiplied by -1.
+            ax.set_title(f"EOM0 Bias: {-actual_hv_0:.1f}V | EOM1 Bias: {-actual_hv_1:.1f}V")
         except ValueError:
             ax.set_title("Error: Invalid Input for EOM1. Hardware state unchanged.")
 

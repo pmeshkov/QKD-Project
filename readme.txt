@@ -32,5 +32,5 @@ Once you've activated your environment, the terminal should look like:
 Here is a command to run a python script in terminal
 note: make sure you are in the correct directory
 
-    python -m [yourscript].py
+    python [yourscript].py
 

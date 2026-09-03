@@ -15,9 +15,29 @@ import numpy as np
 # ==========================================
 # timearray (seconds) defines how long each step lasts.
 # signalarray (volts) defines the target voltage for the EOM during that step.
-timearray =    np.ones(120)*1
-signalarray1 = np.append(np.linspace(-200,200,60), np.zeros(60))
-signalarray0 = np.append(np.zeros(60), np.linspace(-200,200,60))
+#timearray =    np.ones(120)*1
+#signalarray1 = np.append(np.linspace(-200,200,60), np.zeros(60))
+#signalarray0 = np.append(np.zeros(60), np.linspace(-200,200,60))
+
+v_sweep = np.linspace(-200, 200, 60)
+
+# This is the GUI window size. Note that it defaults to
+# 100 counts per window. Decide this based on the length of each
+# measurement in a natural way. So for example, for time_unit = 0.1,
+# 100 counts per window corresponds to window scrolling completely
+# through once roughly every two seconds, which is reasonable.
+window_size = None
+
+time_unit = 0.1
+
+# Total sequence time: 60 * 60 = 3600 units
+timearray = np.ones(3600) * time_unit
+
+# Sweeps from -200 to 200 repeatedly
+signalarray0 = np.tile(v_sweep, 60)
+
+# Steps from -200 to 200 slowly
+signalarray1 = np.repeat(v_sweep, 60)
 
 # Hardware Parameters
 device_name = "Dev1"
@@ -26,7 +46,6 @@ ao_channel_1 = f"{device_name}/ao1"
 pfi_pin_0 = f"/{device_name}/PFI1"
 pfi_pin_1 = f"/{device_name}/PFI2"
 HV_GAIN = 20.0
-AVERAGING_WINDOW_SEC = 0.5
 
 # Ensure arrays are identically sized
 assert len(timearray) == len(signalarray0) == len(signalarray1), "Input arrays must be the same length."
@@ -56,9 +75,6 @@ recorded_data = []
 def daq_worker():
     nidaqmx.system.Device(device_name).reset_device()
     print(f"Hardware reset complete. Initializing DAQ tasks...")
-
-    buffer_0 = collections.deque()
-    buffer_1 = collections.deque()
     
     try:
         with nidaqmx.Task() as ao_task, nidaqmx.Task() as ci_task0, nidaqmx.Task() as ci_task1:
@@ -82,7 +98,6 @@ def daq_worker():
             ao_task.start()
             
             start_time = time.perf_counter()
-            next_step_transition_time = start_time
             
             for step_idx in range(len(timearray)):
                 if not shared_state['is_running']:
@@ -110,49 +125,40 @@ def daq_worker():
                 shared_state['current_v1'] = daq_v1 * HV_GAIN
                 shared_state['current_step_duration'] = step_dur
                 
-                next_step_transition_time += step_dur
+                # Grab initial counts at the start of the step
+                c0_start = ci_task0.read()
+                c1_start = ci_task1.read()
+                step_start_time = time.perf_counter()
                 
-                # Poll counters continuously until it is time for the next step
-                while time.perf_counter() < next_step_transition_time:
+                # Wait for the duration of the interval (checking for early exit)
+                while (time.perf_counter() - step_start_time) < step_dur:
                     if not shared_state['is_running']:
                         break
-                    
-                    now = time.perf_counter()
-                    elapsed = now - start_time
-                    shared_state['elapsed_time'] = elapsed
-                    
-                    # Read hardware
-                    c0 = ci_task0.read()
-                    c1 = ci_task1.read()
-                    
-                    # Calculate rates based on window
-                    buffer_0.append((now, c0))
-                    buffer_1.append((now, c1))
-                    
-                    while buffer_0 and (now - buffer_0[0][0]) > AVERAGING_WINDOW_SEC:
-                        buffer_0.popleft()
-                    while buffer_1 and (now - buffer_1[0][0]) > AVERAGING_WINDOW_SEC:
-                        buffer_1.popleft()
-                    
-                    hz0, hz1 = 0.0, 0.0
-                    if len(buffer_0) > 1:
-                        dt0 = buffer_0[-1][0] - buffer_0[0][0]
-                        if dt0 > 0: hz0 = (buffer_0[-1][1] - buffer_0[0][1]) / dt0
-                            
-                    if len(buffer_1) > 1:
-                        dt1 = buffer_1[-1][0] - buffer_1[0][0]
-                        if dt1 > 0: hz1 = (buffer_1[-1][1] - buffer_1[0][1]) / dt1
-                    
-                    shared_state['rate0'] = hz0
-                    shared_state['rate1'] = hz1
-                    
-                    # Save exact timestamp and data to master record
-                    unix_timestamp = time.time()
-                    recorded_data.append((unix_timestamp, elapsed, target_v0, target_v1, c0, c1, hz0, hz1))
-                    
-                    # Sleep very briefly to prevent pegging the CPU at 100%, 
-                    # while maintaining <2ms polling resolution.
-                    time.sleep(0.001) 
+                    time.sleep(0.01) # Keeps thread responsive to stop commands
+                
+                if not shared_state['is_running']:
+                    break
+                
+                # Grab final counts at the end of the step
+                c0_end = ci_task0.read()
+                c1_end = ci_task1.read()
+                step_end_time = time.perf_counter()
+                
+                # Calculate average rate over the entire interval step
+                dt = step_end_time - step_start_time
+                hz0 = (c0_end - c0_start) / dt if dt > 0 else 0.0
+                hz1 = (c1_end - c1_start) / dt if dt > 0 else 0.0
+                
+                shared_state['rate0'] = hz0
+                shared_state['rate1'] = hz1
+                
+                now = time.perf_counter()
+                elapsed = now - start_time
+                shared_state['elapsed_time'] = elapsed
+                
+                # Save exact timestamp and single averaged data point to master record
+                unix_timestamp = time.time()
+                recorded_data.append((unix_timestamp, elapsed, target_v0, target_v1, c0_end, c1_end, hz0, hz1))
                     
     except Exception as e:
         print(f"DAQ Error: {e}")
@@ -171,14 +177,18 @@ plt.ion()
 fig, ax = plt.subplots(figsize=(10, 6))
 plt.subplots_adjust(top=0.8) # Leave room for clean status text at the top
 
-window_size = 150
-plot_rate0 = collections.deque([0] * window_size, maxlen=window_size)
-plot_rate1 = collections.deque([0] * window_size, maxlen=window_size)
+# Set the window to the last 100 samples
+if not window_size:
+    window_size = 100 
+plot_rate0 = collections.deque(maxlen=window_size)
+plot_rate1 = collections.deque(maxlen=window_size)
+plot_x = collections.deque(maxlen=window_size) # Track X coordinates for the rolling window
 
-line0, = ax.plot(plot_rate0, label='PFI1 Rate (Hz)')
-line1, = ax.plot(plot_rate1, label='PFI2 Rate (Hz)')
+# Initialize empty lines
+line0, = ax.plot([], [], label='PFI1 Rate (Hz)')
+line1, = ax.plot([], [], label='PFI2 Rate (Hz)')
 ax.legend(loc='upper left')
-ax.set_xlabel(f"Samples (Last {window_size} updates)")
+ax.set_xlabel(f"Samples (Rolling window of {window_size})")
 ax.set_ylabel("Counts Per Second (Hz)")
 
 # Status Text Elements
@@ -186,33 +196,47 @@ time_text = fig.text(0.5, 0.92, '', ha='center', fontsize=14, fontweight='bold')
 v0_text = fig.text(0.25, 0.85, '', ha='center', fontsize=12, color='blue')
 v1_text = fig.text(0.75, 0.85, '', ha='center', fontsize=12, color='orange')
 
+last_plotted_elapsed = -1
+sample_count = 0 # Track how many samples we've plotted for the X-axis
+
 try:
     while shared_state['is_running'] and plt.fignum_exists(fig.number):
-        # Fetch current state safely
         elap = shared_state['elapsed_time']
-        v0 = shared_state['current_v0']
-        v1 = shared_state['current_v1']
-        step_dur = shared_state['current_step_duration']
-        r0 = shared_state['rate0']
-        r1 = shared_state['rate1']
         
-        # Update text
-        time_text.set_text(f"Elapsed Time: {elap:.2f} s / {total_sequence_time:.2f} s")
-        # Note the inverted voltages here, see Peter 9/2/26 note above.
-        v0_text.set_text(f"EOM0 Current: {-v0:.1f} V\n(Hold duration: {step_dur:.1f} s)")
-        v1_text.set_text(f"EOM1 Current: {-v1:.1f} V\n(Hold duration: {step_dur:.1f} s)")
-        
-        # Update Plot
-        plot_rate0.append(r0)
-        plot_rate1.append(r1)
-        line0.set_ydata(plot_rate0)
-        line1.set_ydata(plot_rate1)
-        
-        max_rate = max(max(plot_rate0), max(plot_rate1))
-        ax.set_ylim(0, max(10, max_rate * 1.1))
-        
-        fig.canvas.flush_events()
-        plt.pause(0.1) # Updates GUI at 10Hz without affecting the DAQ thread
+        # Only update plot if a new step has finished and updated the state
+        if elap > last_plotted_elapsed:
+            v0 = shared_state['current_v0']
+            v1 = shared_state['current_v1']
+            step_dur = shared_state['current_step_duration']
+            r0 = shared_state['rate0']
+            r1 = shared_state['rate1']
+            
+            # Update text
+            time_text.set_text(f"Elapsed Time: {elap:.2f} s / {total_sequence_time:.2f} s")
+            v0_text.set_text(f"EOM0 Current: {-v0:.1f} V\n(Hold duration: {step_dur:.1f} s)")
+            v1_text.set_text(f"EOM1 Current: {-v1:.1f} V\n(Hold duration: {step_dur:.1f} s)")
+            
+            # Update deques
+            plot_rate0.append(r0)
+            plot_rate1.append(r1)
+            plot_x.append(sample_count)
+            
+            # Update BOTH X and Y data dynamically
+            line0.set_data(plot_x, plot_rate0)
+            line1.set_data(plot_x, plot_rate1)
+            
+            # Dynamically scale both X and Y axes
+            ax.set_xlim(max(0, sample_count - window_size), max(window_size, sample_count))
+            
+            max_rate = max(max(plot_rate0), max(plot_rate1)) if len(plot_rate0) > 0 else 10
+            ax.set_ylim(0, max(10, max_rate * 1.1))
+            
+            fig.canvas.flush_events()
+            
+            last_plotted_elapsed = elap
+            sample_count += 1
+            
+        plt.pause(0.1) # Check state at 10Hz
         
 except KeyboardInterrupt:
     print("Measurement interrupted by user.")

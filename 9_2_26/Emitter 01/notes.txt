@@ -1,0 +1,5 @@
+Emitter counts to TCSPC SPCM:
+Before: 1.8e6
+After: 8e5
+Spectrum seemed to shift significantly???
+G2 looked great, < 0.5
