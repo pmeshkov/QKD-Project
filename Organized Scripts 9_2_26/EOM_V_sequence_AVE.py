@@ -28,7 +28,7 @@ v_sweep = np.linspace(-200, 200, 60)
 # through once roughly every two seconds, which is reasonable.
 window_size = None
 
-time_unit = 0.1
+time_unit = 0.05
 
 # Total sequence time: 60 * 60 = 3600 units
 timearray = np.ones(3600) * time_unit

@@ -15,7 +15,7 @@ import numpy as np
 # ==========================================
 # timearray (seconds) defines how long each step lasts.
 # signalarray (volts) defines the target voltage for the EOM during that step.
-timearray =    np.ones(201)*1
+timearray =    np.ones(201)*0.1
 signalarray1 = np.linspace(-200,200,201) 
 signalarray0 = np.zeros(201)
 
