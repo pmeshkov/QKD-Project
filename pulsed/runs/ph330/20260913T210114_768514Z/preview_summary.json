@@ -1,0 +1,24 @@
+{
+  "kind": "diagnostic_preview_not_normalized_g2",
+  "full_file_records": 3531395,
+  "file_size_matches_metadata": true,
+  "preview_records": 2000000,
+  "preview_is_prefix": true,
+  "preview_photons_by_sdk_channel": {
+    "0": 549913,
+    "1": 1444558
+  },
+  "overflow_records": 5529,
+  "overflow_wraps": 5529,
+  "marker_records": 0,
+  "preview_last_photon_s": 2.831291885305,
+  "sync_period_ns": 500.009,
+  "resolution_ps": 64.0,
+  "microtimes_at_or_beyond_period": 12,
+  "correlation_pairs": 1403396,
+  "correlation_bin_ns": 2,
+  "correlation_lag_definition": "CH2 time minus CH1 time (configured second minus first)",
+  "notes": [
+    "Some microtimes reach/exceed the SYNC period; inspect timing settings/data."
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "device_index": 0,
+  "serial": "1050578",
+  "laser_hz": 2000000,
+  "sync_divider": 1,
+  "binning": 6,
+  "sync": {"mode": "edge", "level_mv": null, "edge": null},
+  "detectors": [
+    {"channel": 0, "label": "CH1 transmitted HBT arm", "mode": "edge", "level_mv": null, "edge": null},
+    {"channel": 1, "label": "CH2 reflected HBT arm", "mode": "edge", "level_mv": null, "edge": null}
+  ],
+  "notes": "Template only: confirm HBT wiring, channel indices, trigger modes, levels and edges before use. Laser internally clocked; no DAQ triggering."
+}

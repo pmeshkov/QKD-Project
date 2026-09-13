@@ -1,0 +1,22 @@
+{
+  "kind": "diagnostic_preview_not_normalized_g2",
+  "full_file_records": 47590,
+  "file_size_matches_metadata": true,
+  "preview_records": 47590,
+  "preview_is_prefix": false,
+  "preview_photons_by_sdk_channel": {
+    "0": 5908,
+    "1": 22151
+  },
+  "overflow_records": 19531,
+  "overflow_wraps": 19531,
+  "marker_records": 0,
+  "preview_last_photon_s": 9.999524735407,
+  "sync_period_ns": 499.99899999999997,
+  "resolution_ps": 64.0,
+  "microtimes_at_or_beyond_period": 0,
+  "correlation_pairs": 57,
+  "correlation_bin_ns": 2,
+  "correlation_lag_definition": "CH2 time minus CH1 time (configured second minus first)",
+  "notes": []
+}

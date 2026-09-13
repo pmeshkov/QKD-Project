@@ -1,0 +1,82 @@
+{
+  "schema": "qkd-ph330-raw-t3-v1",
+  "status": "completed",
+  "config": {
+    "device_index": 0,
+    "serial": "1050578",
+    "laser_hz": 2000000,
+    "sync_divider": 1,
+    "binning": 6,
+    "sync": {
+      "mode": "edge",
+      "level_mv": -500,
+      "edge": "falling"
+    },
+    "detectors": [
+      {
+        "channel": 0,
+        "label": "CH1 transmitted HBT arm",
+        "mode": "edge",
+        "level_mv": 300,
+        "edge": "rising"
+      },
+      {
+        "channel": 1,
+        "label": "CH2 reflected HBT arm",
+        "mode": "edge",
+        "level_mv": 300,
+        "edge": "rising"
+      }
+    ],
+    "notes": "Bring-up starting thresholds, not a measured calibration. Assumes a 10 dB matched electrical attenuator on EACH SPCM line (~+0.7 V pulses at tagger), and verified negative TRG OUT near -1 V into 50 ohms. Confirm physical signal levels before hardware use. Test emitter: no antibunching dip expected. Laser internally clocked at 2 MHz, no DAQ control."
+  },
+  "hardware": {
+    "model": "PicoHarp 330",
+    "part": "930050",
+    "hardware_version": "1.0",
+    "input_count": 2,
+    "features": 935,
+    "base_resolution_ps": 1.0,
+    "resolution_ps": 64.0,
+    "channel_offsets_ps": 0,
+    "histogram_offset_ns": 0,
+    "markers_enabled": false,
+    "event_filter_enabled": false,
+    "extended_deadtime_enabled": false
+  },
+  "rates_before": {
+    "host_utc": "2026-09-13T21:01:14.767072+00:00",
+    "sync_hz": 2000000,
+    "input_hz": [
+      194280,
+      510560
+    ],
+    "warnings": 256,
+    "warnings_text": "WARNING_INPT_RATE_RATIO: \nThe pulse rate ratio R(ch)/R(sync) is/was over 5% \nfor at least one input channel. \nThis may cause pile-up and deadtime artefacts.  \n\n\n"
+  },
+  "dll": "C:\\Program Files\\PicoQuant\\UniHarp\\PH330Lib.dll",
+  "library_version": "2.0",
+  "requested_duration_ms": 5000,
+  "records": 3531395,
+  "flags_seen": 0,
+  "complete": true,
+  "record_format": "GenericT3",
+  "record_type": "0x00010307",
+  "dtype": "little-endian uint32",
+  "raw_file": "events.t3raw",
+  "note": "Not PTU. Raw records plus this JSON are required together.",
+  "host_start_utc": "2026-09-13T21:01:14.792346+00:00",
+  "measured_sync_period_s": 5.00009e-07,
+  "elapsed_ms": 5000.0,
+  "rates_after": {
+    "host_utc": "2026-09-13T21:01:19.817860+00:00",
+    "sync_hz": 2000000,
+    "input_hz": [
+      196060,
+      515990
+    ],
+    "warnings": 256,
+    "warnings_text": "WARNING_INPT_RATE_RATIO: \nThe pulse rate ratio R(ch)/R(sync) is/was over 5% \nfor at least one input channel. \nThis may cause pile-up and deadtime artefacts.  \n\n\n"
+  },
+  "host_end_utc": "2026-09-13T21:01:19.817886+00:00"
+}
