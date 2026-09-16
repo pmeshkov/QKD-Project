@@ -1,0 +1,31 @@
+{
+  "requested_frequency_hz": 1000000,
+  "requested_high_ns": 200,
+  "nominal_timebase_hz": 100000000,
+  "high_ticks": 20,
+  "low_ticks": 80,
+  "realized_nominal_frequency_hz": 1000000.0,
+  "realized_high_ns": 200,
+  "realized_low_ns": 800,
+  "realized_duty_cycle": 0.2,
+  "device": "Dev1",
+  "counter": "Dev1/ctr0",
+  "terminal": "/Dev1/PFI12",
+  "requested_duration_s": 60.0,
+  "status": "completed",
+  "note": "",
+  "excitation_count": null,
+  "optical_lock_verified": false,
+  "product_type": "USB-6351",
+  "serial_number": 38160323,
+  "simulated": false,
+  "driver_version": "DriverVersion(major_version=25, minor_version=3, update_version=1)",
+  "daqmx_readback": {
+    "terminal": "/Dev1/PFI12",
+    "timebase_source": "/Dev1/100MHzTimebase",
+    "high_ticks": 20,
+    "low_ticks": 80
+  },
+  "host_start_utc": "2026-09-14T23:57:21.400607+00:00",
+  "host_end_utc": "2026-09-14T23:58:21.407221+00:00"
+}

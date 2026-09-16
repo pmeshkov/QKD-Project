@@ -12,12 +12,12 @@ from pathlib import Path
 import time
 
 
-TIMEBASE_HZ = 100_000_000
+TIMEBASE_HZ = 1_000_000_000
 
 
 def clock_plan(frequency_hz, high_ns):
     """Round to 10 ns ticks and validate the realized waveform."""
-    if not math.isfinite(frequency_hz) or not 1_000 <= frequency_hz <= 1_000_000:
+    if not math.isfinite(frequency_hz) or not 1_000 <= frequency_hz <= 10_000_000:
         raise ValueError("Characterization frequency must be 1 kHz through 1 MHz.")
     if not math.isfinite(high_ns) or high_ns <= 0:
         raise ValueError("High time must be finite and positive.")
