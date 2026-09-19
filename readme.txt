@@ -38,3 +38,13 @@ note: make sure you are in the correct directory
 
     python [yourscript].py
 
+For installing python modules into your environment, ensure the environment is activated, and then simply run:
+    
+    conda install [your module]
+
+    ex. conda install numpy
+
+    Note; somtimes conda will not support a package. This is fine. Then you must install through pip, as:
+
+    python -m pip install [package not in conda]
+
