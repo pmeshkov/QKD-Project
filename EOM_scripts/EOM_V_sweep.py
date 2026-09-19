@@ -13,11 +13,8 @@ import numpy as np
 # ==========================================
 # EXPERIMENTAL SEQUENCE PARAMETERS
 # ==========================================
-# timearray (seconds) defines how long each step lasts.
-# signalarray (volts) defines the target voltage for the EOM during that step.
-#timearray =    np.ones(120)*1
-#signalarray1 = np.append(np.linspace(-200,200,60), np.zeros(60))
-#signalarray0 = np.append(np.zeros(60), np.linspace(-200,200,60))
+# N determined the number of total voltage steps for each detector
+# v_sweep is a 2D array storing all the voltage configurations
 N = 60
 v_sweep = np.linspace(-200, 200, N)
 
@@ -28,15 +25,17 @@ v_sweep = np.linspace(-200, 200, N)
 # through once roughly every two seconds, which is reasonable.
 window_size = None
 
+# Determines the time of each voltage dwell; the larger, the longer, but the
+# more signal to noise.
 time_unit = 0.05 # in seconds
 
-# Total sequence time: 60 * 60 = 3600 units
-timearray = np.ones(3600) * time_unit
+# Total sequence time: N * N = N**2 units
+timearray = np.ones(N**2) * time_unit
 
-# Sweeps from -200 to 200 repeatedly
+# Sweeps EOM 0 from -200 to 200 repeatedly
 signalarray0 = np.tile(v_sweep, N)
 
-# Steps from -200 to 200 slowly
+# Steps EOM 1 from -200 to 200 slowly
 signalarray1 = np.repeat(v_sweep, N)
 
 # Hardware Parameters
