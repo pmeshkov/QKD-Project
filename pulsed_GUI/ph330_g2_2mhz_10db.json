@@ -1,0 +1,13 @@
+{
+  "device_index": 0,
+  "serial": "1050578",
+  "laser_hz": 2000000,
+  "sync_divider": 1,
+  "binning": 6,
+  "sync": {"mode": "edge", "level_mv": -500, "edge": "falling"},
+  "detectors": [
+    {"channel": 0, "label": "CH1 transmitted HBT arm", "mode": "edge", "level_mv": 300, "edge": "rising"},
+    {"channel": 1, "label": "CH2 reflected HBT arm", "mode": "edge", "level_mv": 300, "edge": "rising"}
+  ],
+  "notes": "Bring-up starting thresholds, not a measured calibration. Assumes a 10 dB matched electrical attenuator on EACH SPCM line (~+0.7 V pulses at tagger), and verified negative TRG OUT near -1 V into 50 ohms. Confirm physical signal levels before hardware use. Test emitter: no antibunching dip expected. Laser internally clocked at 2 MHz, no DAQ control."
+}

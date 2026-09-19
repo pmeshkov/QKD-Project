@@ -10,6 +10,11 @@ do not run `laser_clock.py --run` for this configuration. See
 diagnostic preview succeeded; full optical timing/discriminator calibration
 remains to be done.
 
+For a CH1-only fluorescence decay and optional lifetime tail fit, use
+[`ph330_lifetime.py`](ph330_lifetime.py); commands and output files are described
+in [LIFETIME_CH1.md](LIFETIME_CH1.md). SYNC polarity/threshold must be specified
+for the currently connected signal.
+
 ## Physical allocation
 
 | Resource | Connection / purpose |

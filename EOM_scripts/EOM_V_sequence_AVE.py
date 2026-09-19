@@ -73,8 +73,8 @@ recorded_data = []
 # DAQ WORKER THREAD (Strict hardware loop)
 # ==========================================
 def daq_worker():
-    nidaqmx.system.Device(device_name).reset_device()
-    print(f"Hardware reset complete. Initializing DAQ tasks...")
+    #nidaqmx.system.Device(device_name).reset_device()
+    #print(f"Hardware reset complete. Initializing DAQ tasks...")
     
     try:
         with nidaqmx.Task() as ao_task, nidaqmx.Task() as ci_task0, nidaqmx.Task() as ci_task1:
@@ -85,11 +85,11 @@ def daq_worker():
             
             # Setup CI
             ci_chan0 = ci_task0.ci_channels.add_ci_count_edges_chan(
-                f"{device_name}/ctr0", edge=Edge.RISING, initial_count=0, count_direction=CountDirection.COUNT_UP)
+                f"{device_name}/ctr1", edge=Edge.RISING, initial_count=0, count_direction=CountDirection.COUNT_UP)
             ci_chan0.ci_count_edges_term = pfi_pin_0
             
             ci_chan1 = ci_task1.ci_channels.add_ci_count_edges_chan(
-                f"{device_name}/ctr1", edge=Edge.RISING, initial_count=0, count_direction=CountDirection.COUNT_UP)
+                f"{device_name}/ctr2", edge=Edge.RISING, initial_count=0, count_direction=CountDirection.COUNT_UP)
             ci_chan1.ci_count_edges_term = pfi_pin_1
 
             # Start Hardware
@@ -259,7 +259,7 @@ if recorded_data:
     if user_input in ['y', 'yes']:
         run_id = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         trace_file = f"{run_id}_Detector_Traces.csv"
-        profile_file = f"{run_id}_EOM_Profile.csv"
+        #profile_file = f"{run_id}_EOM_Profile.csv"
         
         # Save 1: Detector Traces
         with open(trace_file, mode='w', newline='') as f:
@@ -268,13 +268,13 @@ if recorded_data:
             writer.writerows(recorded_data)
             
         # Save 2: Input Profiles
-        with open(profile_file, mode='w', newline='') as f:
-            writer = csv.writer(f)
-            writer.writerow(["Time_Duration_s", "EOM0_Voltage", "EOM1_Voltage"])
-            for t, v0, v1 in zip(timearray, signalarray0, signalarray1):
-                writer.writerow([t, v0, v1])
+        #with open(profile_file, mode='w', newline='') as f:
+        #    writer = csv.writer(f)
+        #    writer.writerow(["Time_Duration_s", "EOM0_Voltage", "EOM1_Voltage"])
+        #    for t, v0, v1 in zip(timearray, signalarray0, signalarray1):
+        #        writer.writerow([t, v0, v1])
 
-        print(f"Data successfully saved to:\n - {os.path.abspath(trace_file)}\n - {os.path.abspath(profile_file)}")
+        print(f"Data successfully saved to:\n - {os.path.abspath(trace_file)}")
     else:
         print("Data discarded without saving.")
 else:

@@ -17,12 +17,11 @@ pfi_pin_1 = f"/{device_name}/PFI2"
 init_voltage_0 = 0.0
 init_voltage_1 = 0.0               
 
-# Reset hardware
-nidaqmx.system.Device(device_name).reset_device()
-print(f"Hardware reset complete. DC Output on {ao_channel_0} and {ao_channel_1}, reading from {pfi_pin_0} and {pfi_pin_1}.")
+# nidaqmx.system.Device(device_name).reset_device()
+# print(f"Hardware reset complete. DC Output on {ao_channel_0} and {ao_channel_1}, reading from {pfi_pin_0} and {pfi_pin_1}.")
 
 # Plotting Setup
-window_size = 100
+window_size = 20
 rate_ctr0 = collections.deque([0] * window_size, maxlen=window_size)
 rate_ctr1 = collections.deque([0] * window_size, maxlen=window_size)
 rate_combined = collections.deque([0] * window_size, maxlen=window_size)
@@ -142,11 +141,11 @@ with nidaqmx.Task() as ao_task, nidaqmx.Task() as ci_task0, nidaqmx.Task() as ci
 
     # 3. Configure Counter Inputs
     ci_chan0 = ci_task0.ci_channels.add_ci_count_edges_chan(
-        f"{device_name}/ctr0", edge=Edge.RISING, initial_count=0, count_direction=CountDirection.COUNT_UP)
+        f"{device_name}/ctr1", edge=Edge.RISING, initial_count=0, count_direction=CountDirection.COUNT_UP)
     ci_chan0.ci_count_edges_term = pfi_pin_0
     
     ci_chan1 = ci_task1.ci_channels.add_ci_count_edges_chan(
-        f"{device_name}/ctr1", edge=Edge.RISING, initial_count=0, count_direction=CountDirection.COUNT_UP)
+        f"{device_name}/ctr2", edge=Edge.RISING, initial_count=0, count_direction=CountDirection.COUNT_UP)
     ci_chan1.ci_count_edges_term = pfi_pin_1
 
     # Start Tasks

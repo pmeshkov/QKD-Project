@@ -152,13 +152,15 @@ def rates(api, index, count):
             "warnings_text": text.value.decode(errors="replace")}
 
 
-def drain(api, index, stream, record, duration_s):
+def drain(api, index, stream, record, duration_s, stop_event=None):
     """Read until CTC completion plus six consecutive empty reads, as in SDK."""
     buffer, actual = (ct.c_uint32*TTREADMAX)(), INT()
     empty = 0
     deadline = time.monotonic() + duration_s + 15
     progress_at = 0
     while True:
+        if stop_event is not None and stop_event.is_set():
+            raise KeyboardInterrupt
         flags = scalar(api, index, "GetFlags")
         record["flags_seen"] |= flags
         if flags & BAD_FLAGS:
@@ -187,7 +189,7 @@ def drain(api, index, stream, record, duration_s):
             progress_at = now + 2
 
 
-def run(api, cfg, seconds, destination, acquire):
+def run(api, cfg, seconds, destination, acquire, stop_event=None):
     bind_acquisition(api)
     index, serial = cfg["device_index"], ct.create_string_buffer(8)
     api.call("OpenDevice", index, serial)
@@ -225,6 +227,8 @@ def run(api, cfg, seconds, destination, acquire):
         save()
         try:
             with (folder / "events.t3raw").open("xb") as stream:
+                if stop_event is not None and stop_event.is_set():
+                    raise KeyboardInterrupt
                 api.call("StartMeas", index, record["requested_duration_ms"])
                 try:
                     record["status"] = "running"
@@ -236,7 +240,7 @@ def run(api, cfg, seconds, destination, acquire):
                     if not math.isfinite(period) or abs(period*cfg["laser_hz"]-1) > 0.05:
                         raise RuntimeError("Measured SYNC period differs from the configured laser period.")
                     record["measured_sync_period_s"] = period
-                    drain(api, index, stream, record, seconds)
+                    drain(api, index, stream, record, seconds, stop_event=stop_event)
                     record["elapsed_ms"] = scalar(api, index, "GetElapsedMeasTime", ct.c_double)
                 finally:
                     api.call("StopMeas", index)
@@ -261,7 +265,7 @@ def run(api, cfg, seconds, destination, acquire):
         api.call("CloseDevice", index)
 
 
-def main(argv=None):
+def main(argv=None, stop_event=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", required=True, type=Path)
     parser.add_argument("--dll", default=DEFAULT_DLL, type=Path)
@@ -283,7 +287,8 @@ def main(argv=None):
             return 0
         if args.preview and not args.acquire:
             raise ValueError("--preview requires --acquire; use ph330_preview.py for an existing run.")
-        folder = run(PH330(args.dll), cfg, args.seconds, args.output, args.acquire)
+        folder = run(PH330(args.dll), cfg, args.seconds, args.output, args.acquire,
+                     stop_event=stop_event)
         if args.preview:
             try:
                 from ph330_preview import preview
@@ -301,4 +306,5 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    from gui_app import launch
+    launch("G2 acquisition")
