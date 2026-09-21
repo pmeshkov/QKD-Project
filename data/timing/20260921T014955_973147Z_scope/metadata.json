@@ -1,0 +1,75 @@
+{
+  "schema": "qkd-eom-scope-v1",
+  "plan": {
+    "requested_rate_hz": 1000000.0,
+    "realized_rate_hz": 1000000.0,
+    "period_ticks": 100,
+    "period_ns": 1000,
+    "requested_delay_ns": 500.0,
+    "delay_ticks": 50,
+    "nominal_delay_ns": 500,
+    "requested_high_ns": 100.0,
+    "high_ticks": 10,
+    "low_ticks": 90,
+    "high_ns": 100,
+    "duty_cycle": 0.1,
+    "hold_pulses": 20,
+    "level_dwell_us": 20.0,
+    "ab_pattern_hz": 25000.0,
+    "target_hv": [
+      [
+        50.0,
+        -50.0
+      ],
+      [
+        0.0,
+        0.0
+      ]
+    ],
+    "daq_levels": [
+      [
+        -2.5,
+        2.5
+      ],
+      [
+        -0.0,
+        -0.0
+      ]
+    ],
+    "assumed_hv_gain": -20.0,
+    "samples_per_channel": 40,
+    "timebase_hz": 100000000,
+    "device": "Dev1",
+    "start_trigger": "/Dev1/ao/SampleClock",
+    "counter": "Dev1/ctr0",
+    "terminal": "/Dev1/PFI12",
+    "mode": "continuous onboard regeneration; approximate host-controlled duration",
+    "delay_note": "Nominal delay from AO sample clock to NI trigger; scope verification required."
+  },
+  "note": "",
+  "requested_seconds": 0.0,
+  "status": "stopped",
+  "cleanup_errors": [],
+  "ao_zeroed_on_exit": true,
+  "hardware_started": true,
+  "scope_reference": "User observes BDL TTL OUT; offset to TRG OUT/optical pulse unmeasured.",
+  "product_type": "USB-6351",
+  "serial_number": 38160323,
+  "stage": "arm counter then start AO sample clock",
+  "daqmx_readback": {
+    "ao_rate_hz": 1000000.0,
+    "ao_timebase_hz": 100000000.0,
+    "ao_divisor": 100,
+    "ao_timebase_source": "/Dev1/100MHzTimebase",
+    "onboard_only": true,
+    "counter_timebase_source": "/Dev1/100MHzTimebase",
+    "counter_initial_delay": 50,
+    "counter_high_ticks": 10,
+    "counter_low_ticks": 90,
+    "counter_terminal": "/Dev1/PFI12",
+    "counter_start_source": "/Dev1/ao/SampleClock"
+  },
+  "host_start_utc": "2026-09-21T01:49:57.699809+00:00",
+  "host_elapsed_seconds": 215.10372300000745,
+  "host_end_utc": "2026-09-21T01:53:32.832742+00:00"
+}

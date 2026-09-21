@@ -15,11 +15,19 @@ You can also run any of these Python files directly with VS Code's Run button; e
 | `ph330.py` | Check the DLL or find connected PicoHarp devices. |
 | `laser_clock.py` | Check timing settings or output the clock on Ctr0/PFI12. |
 | `laser_clock_eom.py` | Adjust static AO0/AO1 EOM voltages while generating the PFI12 clock; adjust clock settings in the same window. |
+| `eom_timing_scope.py` | Repeating buffered AO0/AO1 voltage steps and a delayed PFI12 clock for scope measurements. |
+| `pulsed_polarization.py` | Eight static Alice/Bob settings; saves ungated two-channel T3, sixteen arrival curves and polarization matrices. |
 | `ph330_acquire.py` | Check settings, check count rates, or record CH1/CH2 TTTR data for the 2 MHz HBT test. |
 | `ph330_preview.py` | Plot a saved acquisition without connecting to hardware. |
 | `ph330_lifetime.py` | Record CH1 fluorescence delays, or analyze a saved run and optionally fit its decay tail. |
 
 `gui_app.py` supplies the shared windows. The `test_*.py` files remain developer offline tests, not acquisition applications. The two copied JSON profiles are reference configurations; acquisition settings are entered using the form and saved in each run's metadata. The separate `laser_clock_gemini.py` was not copied.
+
+## Pulsed polarization
+
+Select **Pulsed polarization** for the next optical baseline measurement. The six voltage fields start with your latest reported calibration values. Alice labels initially use notebook indices S0/S1/S2/S3, so physical H/V/R/L assignments are not guessed. Choose the laser source, enter the working PicoHarp trigger edges, check settings, then record. Start with 10 seconds per setting; eight settings take about 80 seconds plus setup. Both detector channels are recorded together.
+
+Raw data and plots save under `data/polarization/<timestamp>/`. Internal 2/20/80 MHz operation requires manually disconnecting PFI12 and selecting the laser rate. [Full instructions and file descriptions](PULSED_POLARIZATION.md). `polarization_analysis.py` supports offline analysis; it is not a separate acquisition tool.
 
 ## Laser clock + EOM
 
@@ -31,7 +39,7 @@ Edit frequency/pulse width and click **Apply clock (restart)** to change the pul
 
 This is a manual alignment tool. AO uses on-demand static writes; updates are not synchronized to individual laser pulses, and transients may overlap excitation. The initial 10 ms pause before starting the clock is not a calibrated EOM settling measurement. Final BB84 operation still needs buffered, hardware-synchronized AO generation.
 
-Close other programs using AO0/AO1 or Ctr0 before running. In particular, `EOM_scripts/EOM_gui_log.py` also uses Ctr0 and resets the device at startup, so do not run it alongside this tool. The new tool never resets the DAQ or reassigns detector inputs. The existing PFI12-to-BDL electrical interface requirements still apply. Each session saves initial settings, applied adjustments with host timestamps, restart events, and cleanup status in `pulsed_GUI/runs/clock_eom/*_clock_eom.json`.
+Close other programs using AO0/AO1 or Ctr0 before running. In particular, `EOM_scripts/EOM_gui_log.py` owns the same AO channels, so do not run it alongside this tool. The new tool never resets the DAQ or reassigns detector inputs. The existing PFI12-to-BDL electrical interface requirements still apply. Each session saves initial settings, applied adjustments with host timestamps, restart events, and cleanup status in `pulsed_GUI/runs/clock_eom/*_clock_eom.json`.
 
 The on-demand AO write behavior follows [NI's Python task documentation](https://nidaqmx-python.readthedocs.io/en/stable/task.html); the [USB-6351 specification](https://www.ni.com/en/shop/hardware/voltage/model-usb-6351) lists two AO channels with a ±10 V range.
 
@@ -63,6 +71,13 @@ The HBT preview's three plots are counts versus time, photon delays after SYNC, 
 
 The clock still uses hardware timing. Python only controls its approximate overall duration. PFI0/PFI1/PFI2 are not reassigned. The unresolved DAQ-to-laser impedance interface is still needed before connecting PFI12 to the BDL. The GUI copy corrects the source script's `1_000_000_000` timebase constant to **100 MHz**, matching its existing `100MHzTimebase` route and 10 ns tick calculations. Its inherited allowed frequency range remains 1 kHz–10 MHz, subject to minimum pulse widths and ≤30% duty cycle; this is not a claim that the laser or EOM operates throughout that range.
 
-The PicoHarp still uses the existing PH330Lib T3 setup and validation. Threshold settings do not attenuate incoming pulses; use the verified electrical interfaces and correct 50 Ω signal levels. The GUI does not control the laser repetition rate or the EOMs.
+The PicoHarp tools still use the existing PH330Lib T3 setup and validation. Threshold settings do not attenuate incoming pulses; use the verified electrical interfaces and correct 50 Ω signal levels. The NI tools control external triggering and EOM commands; switching the BDL to internal-clock operation remains manual.
 
 Offline tests (no hardware): select `niDaqENV` and run `python -m unittest discover -s pulsed_GUI -v` from the repository root. Dependencies are the existing environment's tkinter, numpy, scipy, matplotlib/Pillow, and nidaqmx for the clock; the PicoHarp driver/DLL is required only for hardware operations.
+## EOM settling and laser timing test
+
+Select **EOM timing scope** in `launch.py`, or run
+`python pulsed_GUI/eom_timing_scope.py` to open its parameter window directly.
+It outputs a repeating two-level waveform on AO0/AO1 with a hardware-delayed
+Ctr0/PFI12 laser clock. See [EOM_TIMING_SCOPE.md](EOM_TIMING_SCOPE.md) for wiring,
+the first measurement, and saved files under `data/timing/`.

@@ -1,0 +1,96 @@
+QKD PLAN - current decisions and next step
+Updated: 2026-09-20
+Working plan: review one step at a time; later stages are not finalized.
+Historical detailed draft: docs/planning/initial_plan_2026-09-20.txt
+That archive is background only; decisions below supersede it.
+
+CONFIRMED SETUP
+- QKD setup: AO0 = Alice H/V/R/L; AO1 = Bob H/V or R/L basis.
+  Final experiment: independently random Alice states and Bob bases each trial.
+- PFI12/Ctr0 -> BDL SYNC IN; BDL TRG OUT -> PicoHarp SYNC.
+  Two detectors are connected to the QKD receiver's PBS outputs.
+- DAQ triggering works from 1 kHz to 1 MHz. Current working trial-rate target:
+  500 kHz (2 us per trial), based on the first EOM scope observation below.
+- Above 1 MHz, the user must disconnect PFI12 from the laser and select its
+  INTERNAL mode manually. Available internal settings: 2, 20, 80 MHz and CW.
+  Future GUI: explicit manual-changeover step and confirmation, then verify
+  measured SYNC where applicable. Never imply software switched the laser.
+  CW has no pulsed excitation index. Internal laser timing is not automatically
+  phase locked to NI; high-rate tests initially use static EOM settings.
+- User's working PicoHarp histogram settings:
+  CH1: edge trigger, +200 mV; offset and rising/falling edge to confirm.
+  CH2: edge trigger, +200 mV, channel offset +4.5 ns (aligns with CH1).
+  SYNC: edge trigger, -250 mV, channel offset 0 ns.
+  Trigger slope is separate from threshold sign and remains to be confirmed.
+  Python must explicitly configure/log settings. The new polarization GUI
+  applies CH2 +4.5 ns by default; older profiles still default to zero.
+  Reproduce the +4.5 ns channel setting once, with a readback/histogram check;
+  do not also shift the saved events by another 4.5 ns in post-processing.
+- Quantum emitter setup: separate HBT/scanning/imaging system with another TCSPC,
+  reached using a flip mirror. Its controls are outside this repository.
+  The QKD PBS cannot be swapped for a non-polarizing beamsplitter during tests.
+
+MEASUREMENT RESPONSIBILITIES (current direction)
+- QKD setup: photon-arrival histograms, channel alignment, gate calibration,
+  polarization measurements, timing validation and final BB84 acquisition.
+- Quantum emitter setup: paper-quality lifetime and g2 source characterization.
+  Link exported results/settings to the relevant QKD operating conditions.
+  No new controls for that setup are planned here. Confirm its splitter layout
+  when reviewing g2 (user mentioned PBS); defer that discussion for now.
+- Save ungated QKD TTTR records; gates can be changed in post-processing.
+
+COMPLETED FIRST STEP: EOM / LASER SCOPE TEST
+First bench observation (user report, 2026-09-20): transition from -150 V to
++150 V takes slightly less than 1 us and settles very smoothly. This supports
+500 kHz as the working rate. EOM identity, quantitative settling tolerance,
+reverse-direction result and exact laser phase have not yet been recorded.
+User-reported good scope timing: 500 kHz with 1200 ns delay; requested 750 kHz
+with 900 ns delay. Current code realizes the latter at ~751,880 Hz (1.33 us).
+These are candidate operating profiles, not yet optical-fidelity measurements.
+Delay is nominal AO sample-clock edge -> PFI12 rising edge.
+Latest user confirmation: one pulse per voltage works; Alice and Bob EOMs are
+well synchronized. BDL TTL OUT and TRG OUT align within approximately 1 ns.
+This is a reported electrical check, not a measurement of optical fidelity.
+Retain scope captures, voltage pairs and settling criteria for reproducibility.
+Implemented: pulsed_GUI/eom_timing_scope.py; launcher option EOM timing scope.
+Guide: pulsed_GUI/EOM_TIMING_SCOPE.md. Outputs: data/timing/<run>/.
+The electrical-to-optical timing relation remains part of arrival/optical validation.
+
+CURRENT STEP: STATIC PULSED POLARIZATION (code ready for bench testing)
+- pulsed_GUI/pulsed_polarization.py, launcher option Pulsed polarization:
+  hold each Alice state and each Bob basis fixed, acquire both detector channels,
+  and save 16 arrival histograms from 8 settings plus integrated count matrices.
+  Static measurements do not need a switching delay or sequence-origin
+  reconstruction. Preserve ungated TTTR and channel offsets. Start with
+  10 seconds per setting; use manual internal 2/20/80 MHz for higher SNR if useful.
+- GUI voltage defaults use the latest user values: Alice array
+  [-152, -50.87, 50.90, 152.69] V; Bob [47.52, -47.44] V. Keep these editable.
+  Alice defaults to notebook indices S0/S1/S2/S3, since array order is not
+  H/V/R/L. Opposite pairs are entries 0/2 and 1/3. Physical state/basis and
+  detector outcome assignments require confirmation; do not infer handedness.
+  Use Pulsed polarization / Analyze saved run to change gates offline.
+  Guide: pulsed_GUI/PULSED_POLARIZATION.md. Data: data/polarization/<run>/.
+- Validation: 69 offline GUI/backend tests passed, including simulated acquisition
+  and cleanup. New polarization acquisition has not yet been tested on the bench.
+- Then validate deterministic switched sequences with a demonstrated T3 origin,
+  compare optical errors with static baseline, and test 750 kHz/900 ns against
+  500 kHz/1200 ns. Randomized operation follows that validation.
+
+LATER ACQUISITION (agreed direction; not part of the scope test)
+- T3 recording through Python; discard X warm-up cycles and apply arrival-time
+  gates in post-processing. X is adjustable; 500,000 cycles is an example.
+- Prepare both AO sequences before running. Hold voltages during the warm-up,
+  then advance to the trial waveform at the selected NI hardware sample index.
+- The user rejected a quiet-laser start requirement. Do not implement or require
+  it. Scope testing can proceed independently of TCSPC start alignment.
+- Exact NI-index-to-T3-index origin still needs a demonstrated reference before
+  indexed BB84 acquisition. Warm-up rejection alone does not prove that origin.
+  Keep this as a later validation item; do not assume the first photon is trial 0.
+- One Python GUI will own NI and PicoHarp tasks, save actual settings/sequences
+  and raw T3 data, preserve counter-wrap records, and check errors.
+- A marker adapter is currently unavailable. No T2 implementation is planned.
+
+NEXT OPEN DETAILS
+- Scope model and available channels.
+- Trigger slopes on all PicoHarp inputs and CH1 channel offset.
+Later: pulsed polarization -> deterministic indexed trials -> randomized BB84.

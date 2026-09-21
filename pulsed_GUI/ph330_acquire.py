@@ -41,6 +41,10 @@ def validate(config, detector_count=2, expected_laser_hz=2_000_000):
     if any(type(i) is not int or not 0 <= i < 4 for i in ids) or len(set(ids)) != detector_count:
         raise ValueError("Detector channels must be distinct integer SDK indices 0..3.")
     for trigger in [config.get("sync", {})] + channels:
+        offset = trigger.get("offset_ps", 0)
+        # Conservative software range inside PH330's channel-offset range.
+        if type(offset) is not int or not -99000 <= offset <= 99000:
+            raise ValueError("offset_ps must be an integer within the software range +/-99000 ps.")
         mode, level = trigger.get("mode"), trigger.get("level_mv")
         if mode not in ("edge", "cfd") or type(level) is not int:
             raise ValueError("Supply each input's measured mode and integer level_mv; null is not a setting.")
@@ -114,7 +118,7 @@ def configure(api, cfg):
             api.call(f"Set{prefix}EdgeTrg", *args, spec["level_mv"], int(spec["edge"] == "rising"))
         else:
             api.call(f"Set{prefix}CFD", *args, spec["level_mv"], spec["zero_cross_mv"])
-        api.call(f"Set{prefix}ChannelOffset", *args, 0)
+        api.call(f"Set{prefix}ChannelOffset", *args, spec.get("offset_ps", 0))
         if features & 0x20:
             api.call(f"Set{prefix}DeadTime", *args, 0, 800)
     selected = {d["channel"] for d in cfg["detectors"]}
@@ -136,7 +140,11 @@ def configure(api, cfg):
     return {"model": model.value.decode(), "part": part.value.decode(),
             "hardware_version": version.value.decode(), "input_count": count,
             "features": features, "base_resolution_ps": base.value,
-            "resolution_ps": resolution, "channel_offsets_ps": 0,
+            "resolution_ps": resolution,
+            "channel_offsets_ps": {"sync": cfg["sync"].get("offset_ps", 0),
+                                   "inputs": {str(d["channel"]): d.get("offset_ps", 0)
+                                              for d in cfg["detectors"]}},
+            "channel_offsets_note": "Configured SDK values, not measured readbacks; already applied to TTTR.",
             "histogram_offset_ns": 0, "markers_enabled": False,
             "event_filter_enabled": False, "extended_deadtime_enabled": False}
 
@@ -189,7 +197,7 @@ def drain(api, index, stream, record, duration_s, stop_event=None):
             progress_at = now + 2
 
 
-def run(api, cfg, seconds, destination, acquire, stop_event=None):
+def run(api, cfg, seconds, destination, acquire, stop_event=None, allow_dark_channels=False):
     bind_acquisition(api)
     index, serial = cfg["device_index"], ct.create_string_buffer(8)
     api.call("OpenDevice", index, serial)
@@ -204,7 +212,7 @@ def run(api, cfg, seconds, destination, acquire, stop_event=None):
             return None
         if abs(before["sync_hz"] / cfg["laser_hz"] - 1) > 0.05:
             raise RuntimeError(f"SYNC rate is not within 5% of {cfg['laser_hz']:g} Hz; check laser and trigger settings.")
-        if any(before["input_hz"][d["channel"]] <= 0 for d in cfg["detectors"]):
+        if not allow_dark_channels and any(before["input_hz"][d["channel"]] <= 0 for d in cfg["detectors"]):
             raise RuntimeError("Each selected detector must have a nonzero rate before acquisition.")
         destination.mkdir(parents=True, exist_ok=True)
         folder = destination / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S_%fZ")

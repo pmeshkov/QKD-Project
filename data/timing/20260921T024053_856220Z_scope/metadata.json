@@ -1,0 +1,75 @@
+{
+  "schema": "qkd-eom-scope-v1",
+  "plan": {
+    "requested_rate_hz": 750000.0,
+    "realized_rate_hz": 751879.6992481203,
+    "period_ticks": 133,
+    "period_ns": 1330,
+    "requested_delay_ns": 1000.0,
+    "delay_ticks": 100,
+    "nominal_delay_ns": 1000,
+    "requested_high_ns": 100.0,
+    "high_ticks": 10,
+    "low_ticks": 123,
+    "high_ns": 100,
+    "duty_cycle": 0.07518796992481203,
+    "hold_pulses": 1,
+    "level_dwell_us": 1.33,
+    "ab_pattern_hz": 375939.84962406015,
+    "target_hv": [
+      [
+        150.0,
+        -150.0
+      ],
+      [
+        0.0,
+        0.0
+      ]
+    ],
+    "daq_levels": [
+      [
+        -7.5,
+        7.5
+      ],
+      [
+        -0.0,
+        -0.0
+      ]
+    ],
+    "assumed_hv_gain": -20.0,
+    "samples_per_channel": 2,
+    "timebase_hz": 100000000,
+    "device": "Dev1",
+    "start_trigger": "/Dev1/ao/SampleClock",
+    "counter": "Dev1/ctr0",
+    "terminal": "/Dev1/PFI12",
+    "mode": "continuous onboard regeneration; approximate host-controlled duration",
+    "delay_note": "Nominal delay from AO sample clock to NI trigger; scope verification required."
+  },
+  "note": "",
+  "requested_seconds": 0.0,
+  "status": "stopped",
+  "cleanup_errors": [],
+  "ao_zeroed_on_exit": true,
+  "hardware_started": true,
+  "scope_reference": "User observes BDL TTL OUT; offset to TRG OUT/optical pulse unmeasured.",
+  "product_type": "USB-6351",
+  "serial_number": 38160323,
+  "stage": "arm counter then start AO sample clock",
+  "daqmx_readback": {
+    "ao_rate_hz": 751879.6992481203,
+    "ao_timebase_hz": 100000000.0,
+    "ao_divisor": 133,
+    "ao_timebase_source": "/Dev1/100MHzTimebase",
+    "onboard_only": true,
+    "counter_timebase_source": "/Dev1/100MHzTimebase",
+    "counter_initial_delay": 100,
+    "counter_high_ticks": 10,
+    "counter_low_ticks": 123,
+    "counter_terminal": "/Dev1/PFI12",
+    "counter_start_source": "/Dev1/ao/SampleClock"
+  },
+  "host_start_utc": "2026-09-21T02:40:54.028431+00:00",
+  "host_elapsed_seconds": 65.9491846000019,
+  "host_end_utc": "2026-09-21T02:42:00.006733+00:00"
+}

@@ -1,0 +1,395 @@
+HISTORICAL DRAFT - archived 2026-09-20
+Superseded by ../../plan.txt. Contains older assumptions, including in-repo HBT
+acquisition and laser operation; do not treat those as current decisions.
+
+QKD EXPERIMENT PLAN - working draft
+Updated: 2026-09-20
+Status: repository/paper review complete; staged implementation proposed.
+This is a living plan. Distinguish user-confirmed facts from proposals and
+measured results. Update decisions and acceptance evidence after each stage.
+This planning pass changes no acquisition code or hardware settings.
+
+1. AGREED ARCHITECTURE AND SCOPE
+
+Confirmed by user:
+- NI USB-6351 -> PFI12/Ctr0 -> BDL SYNC IN external triggering works.
+- User reports clean external triggering from 1 kHz through 1 MHz. Counts below
+  500 kHz are impractically low for routine photon measurements.
+- Test pulse-by-pulse operation at 1 MHz first; likely operating range is
+  500-750 kHz, conditional on measured settling and polarization quality.
+- Large-step HVA settling has not yet been measured. Advertised 1 MHz bandwidth
+  does not by itself establish accurate state settling within a 1 us trial.
+- Treat 1 MHz as the verified upper rate of the present setup, not an established
+  intrinsic limit of PFI12/Ctr0. NI counter timing and the complete electrical
+  trigger path have separate limits; faster operation is not required here.
+- AO0 drives Alice's EOM: four states H, V, R, L.
+- AO1 drives Bob's EOM: choice of H/V or R/L measurement basis.
+  This supersedes the earlier description of both EOMs preparing Alice.
+- Bob will randomly switch measurement basis each trial in the final BB84 run.
+- BDL TRG OUT supplies PicoHarp 330 SYNC. Two SPCMs supply CH1 and CH2.
+- GUI controls are preferred; preserve the useful alignment/calibration tools.
+- Someone else owns reconciliation, privacy amplification and final analysis.
+  Our deliverable is trustworthy experimental records plus diagnostic checks.
+
+Current code allocation (confirm physical wiring before changing anything):
+- EOM_scripts uses ctr1/PFI1 and ctr2/PFI2 for detector counts.
+  Older conversation used PFI0/PFI1; do not silently restore that allocation.
+- Reserve Ctr0/PFI12 for the laser. Assign any additional timing/marker resources
+  only after checking USB-6351 routes and conflicts with existing tasks.
+- One owner for AO0/AO1 during integrated acquisition. A separate GUI cannot
+  independently reserve those same outputs. No device reset by a companion app.
+
+Still open:
+- Worst-step HV settling measurements and available DAQ-to-PicoHarp marker wiring.
+  No answer about marker connections has been recorded yet.
+- Reference optics/detector labeling used to identify physical H/V and R/L.
+- Emitter, excitation power, useful lifetime, signal/background and acquisition
+  times needed for the real dataset. Values in the papers are not our values.
+
+2. IMPLEMENT IN SMALL, TESTABLE STAGES
+
+Do not rewrite the entire experiment at once. Reuse existing acquisition code,
+validate each stage, then consolidate shared code while preserving working tools.
+Lifetime/g2 acquisition and electrical switching tests can progress separately;
+do not wait for publication-quality low-count g2 before testing synchronization.
+
+Next implementation increment, after the open wiring/timing answers:
+1) Agree a saved hardware/calibration profile and common run-folder format.
+2) Validate the existing lifetime and g2 acquisition at a chosen higher laser
+   rate; remove inappropriate fixed-rate checks and improve cumulative previews.
+3) Build a small finite, deterministic two-AO timing prototype with adjustable
+   AO-to-laser delay and scope outputs. Prove timing before adding random runs.
+Do not simultaneously implement long streaming runs, security analysis and a
+large GUI redesign. The GUI should expose the current experiment step clearly.
+
+3. LIFETIME / PHOTON ARRIVAL [existing code; experimental validation needed]
+
+Recommendation: keep Python TTTR acquisition and cumulative arrival previews.
+Use UniHarp as an independent commissioning/cross-check tool, not as the only
+place where the measurement settings or raw data exist. A manually entered
+lifetime alone is insufficient for later gate optimization.
+
+- Begin with CH1 lifetime; collect both detector arrival responses when preparing
+  polarization measurements, since their electrical/optical delays may differ.
+- Save ungated raw events and metadata. Apply adjustable gates to previews and
+  post-processing without destroying the original timestamps.
+- Distinguish arrival distribution from fitted emitter lifetime. Background,
+  instrument response, fit interval and uncertainty matter; a tail-only
+  exponential is not an instrument-response-corrected lifetime measurement.
+- Measure a prompt/reference response if required for the chosen lifetime fit.
+- Use a higher repetition rate when decay overlap, detector dead time/count
+  rate, instrument settings and source excitation permit. 80 MHz means only
+  12.5 ns between pulses; select the rate from measured decay, not convenience.
+- Record pulse energy/power and repeat a reference at the intended QKD operating
+  point. Changing repetition rate can change the source and laser behavior.
+
+Acceptance: stable expected SYNC/count rates, full-period arrival coverage,
+documented channel offsets, reproducible histogram, valid raw-file readback,
+and a justified fit or an explicit statement that only arrival timing is known.
+
+4. PULSED g(2) [TTTR recorder and diagnostic histogram exist]
+
+- Use the HBT configuration: non-polarizing beamsplitter with both outputs
+  detected. Record the optical configuration; it differs from Bob's PBS receiver.
+- Prefer the same Python TTTR backend with a g2 measurement profile. Cross-check
+  against UniHarp where useful. Keep diagnostic correlation distinct from the
+  analysis colleague's final normalization, uncertainty and source-security work.
+- Accumulate over the complete measurement, with adjustable lag range/binning
+  and integrated central/side-peak counts. Longer runs improve sparse statistics.
+- The current preview correlation is not a publication-ready normalized g2(0).
+- Compare equal central/side-peak integration windows; document background,
+  blinking, rate drift and any corrections rather than silently subtracting them.
+- Preserve ungated records. For gate-dependent g2, first gate each detector's
+  events relative to excitation, then correlate; cutting only the correlation
+  lag axis is a different operation.
+- A reduced g2 after Bob's temporal gate is not automatically a reduced bound on
+  photons available to Eve at Alice. Agree the source bound with the security
+  analysis owner; keep full-period/source characterization as well.
+
+Acceptance: correct laser-period peak spacing, reasonable positive/negative-lag
+behavior with documented channel delay, reproducible integrals/uncertainties,
+and no FIFO/data loss. A test emitter need not display an antibunching dip.
+
+5. STATIC PULSED POLARIZATION TEST [new measurement workflow]
+
+Use Fig. 1(d) of the Tools paper as the primary measurement target: a 4x4 array
+of photon-arrival histograms, supplemented by integrated polarization matrices.
+Our two-detector, active-Bob arrangement differs from its passive four-output
+receiver. For each Alice state H/V/R/L, measure both Bob bases sequentially:
+4 Alice settings x 2 Bob settings x 2 detectors = 16 histogram cells.
+
+- Keep voltages fixed during each accumulation; use a suitable higher laser rate.
+- Verify physical state and detector labels with reference optics. Define the
+  handedness convention for R/L and a single basis/bit/state mapping.
+- Directly measure the calibrated voltage settings, not just the nearest points
+  in an earlier coarse sweep. Alternate/repeat settings to reveal source drift.
+- Save raw counts, exposure/trial count, detector assignment and ungated/gated
+  arrivals. Normalize for unequal exposure; display conventions must be explicit.
+- In a selected basis, ideal conditional outcome probabilities are 1/0 for a
+  matching state and 1/2,1/2 for the other basis. Do not copy passive four-output
+  normalization without accounting for the different measurement architecture.
+- Compare dark/background, leakage shape and channel timing. A decay-shaped
+  wrong-detector signal indicates different behavior from a flat background.
+
+Acceptance: correct labels, expected matched/cross-basis behavior within measured
+imperfections, repeatability, and a recorded static baseline for switching tests.
+
+6. DETERMINISTIC SWITCHING [highest-priority technical development]
+
+6A. High-count-rate block test
+- With a high-rate laser, hold H then V then R then L for many excitations each.
+  Start with long dwells (e.g. milliseconds), then shorten them. Exercise Bob too.
+- Look for steady plateaus, transition contamination and dependence on the
+  previous state. This tests dynamic optical behavior with useful count rates.
+- If laser and NI timing are independent, do not infer block membership solely
+  by dividing a SYNC index by an assumed block length. Use measured markers or
+  verified shared timing; exclude ambiguous transition intervals.
+- This is a diagnostic, not one-independent-state-per-excitation BB84.
+
+6B. Scope characterization and feasibility
+- Measure AO command, HVA monitor and BDL TRG OUT timing; also use optical
+  polarization checks because a voltage trace alone does not prove state quality.
+- Measure all 16 directed Alice transitions (including holds) and all 4 Bob
+  transitions, including simultaneous changes and representative history effects.
+  H,V,R,L repetition alone exercises only four Alice transitions.
+- Use the actual calibrated steps. Consider equivalent voltage choices that
+  reduce the worst step while preserving the verified optical states.
+- NI specifies two-channel AO updates up to 2 MS/s and full-scale 1-LSB settling
+  of 2 us. Faster updates do not imply settled voltages. The actual tolerated
+  error and step sizes decide whether a 2 us trial is viable.
+- HVA bandwidth/slew limits are not guarantees of settled optical polarization.
+  Measure the entire chain. Keep Alice and Bob stable over the relevant photon
+  passage/emission window, including flight time and the next state transition.
+- Establish a measured settling delay plus margin. Per user preference, test
+  1 MHz first (1 us/trial), then approximately 750 kHz (1.33 us/trial) and
+  500 kHz (2 us/trial) as needed. Record actual hardware-realized rates/delays.
+  Select the highest rate that passes settling and optical checks, not just the
+  one that yields most counts. Lower rates can still serve electrical debugging.
+  If necessary revisit drive electronics instead of assigning multiple
+  excitations to one secure trial.
+
+6B.1. First scope test procedure [proposed; not implemented or measured]
+- Keep the normal HVA-to-EOM load and cable connected. Observe the HVA200 HV
+  MONITOR connector, never connect its HV drive output directly to a scope.
+- Monitor channel: DC coupling, high impedance (normally 1 Mohm), no external
+  50-ohm terminator. Manufacturer nominal scaling is HV/20 into high impedance;
+  +100 V at the output corresponds to approximately +5 V at the monitor.
+  Check channel/probe ratings and attenuation; monitor scaling is not a precision
+  calibration of the optical state. Use steady-state readings as references.
+- First measure one amplifier; repeat for the other and then simultaneous steps.
+  Suggested four-channel capture: AO command (high impedance), HVA monitor
+  (high impedance), PFI12 at laser input (high-impedance probe), BDL TRG OUT
+  (the verified load/termination). Do not add a second 50-ohm termination across
+  an existing PicoHarp input; temporarily move TRG OUT to the correctly terminated
+  scope for this electrical test, or use a suitable non-loading monitor method.
+- With fewer scope channels, take staged captures: AO+monitor to inspect step
+  shape; monitor+PFI12 and monitor+TRG OUT to establish excitation placement.
+  Use an available, verified hardware timing export if a direct AO-clock
+  reference is needed; do not allocate a new PFI without checking its route.
+- Record static monitor values for each calibrated voltage. First use long holds
+  (e.g. 20 us) to see an isolated transition and its final level, without photon
+  acquisition. Then switch between the two calibrated states requiring the
+  largest voltage step every 1 us. This is 1 million updates/s, but the complete
+  two-state A/B waveform repeats at 500 kHz. Do not demand arbitrary full-scale
+  swings beyond those needed by the calibrated state set.
+- Trigger on one identifiable AO transition initially; inspect both directions
+  using a sufficiently long single capture. At high rate use persistence to
+  reveal jitter/ringing; avoid averaging away variable timing errors.
+- Compare each trace to its static target. Measure delay, overshoot, and the
+  earliest time it enters and stays in a stated voltage-error band. A provisional
+  1%-of-step band is only a bench diagnostic; final allowable voltage error must
+  come from optical calibration/error measurements. Rise time alone is not enough.
+- Use buffered AO and a coherent, delayed counter clock. Sweep the AO-to-trigger
+  phase between runs (e.g. 50 ns requested increments) and inspect actual TRG OUT
+  placement. Delays are hardware quantized and logged; never Python sleeps.
+- Find a settled interval that covers photon passage through both EOMs before
+  the next update. TRG OUT is an electrical timing reference; establish its
+  offset to optical excitation/arrival separately. Do not put the trigger at the
+  very end of the plateau without allowing the emission/arrival window.
+- If 1 MHz provides no adequate plateau, repeat at approximately 750 and 500 kHz.
+  Repeat remaining transitions and joint Alice/Bob switching once the worst-step
+  test is understood. Later validate polarization optically; monitor traces
+  alone cannot establish preparation/measurement fidelity.
+- Save scope waveforms/screenshots with rate, actual delay, calibrated voltage
+  pair, static levels, error-band definition, measured settling and overshoot.
+- Existing laser_clock_eom.py changes static voltages asynchronously. It cannot
+  run this test accurately; a new synchronized buffered timing GUI is required.
+
+6C. Finite, hardware-timed pulse sequence
+Proposed architecture, subject to actual routing validation:
+  Common NI timing -> simultaneous buffered AO0/AO1 updates each trial
+                   -> phase-delayed Ctr0 pulse on PFI12
+                   -> BDL excitation / TRG OUT -> PicoHarp SYNC
+  PicoHarp records both detector channels and synchronization markers.
+
+  trial n:   AO update -- measured settling -- excitation -- photon window
+  trial n+1: AO update -- measured settling -- excitation -- photon window
+
+- Prefer one AO sample per trial with a separately set hardware counter phase.
+  A fine trigger delay need not require oversampling the AO waveform.
+- Derive clocks from coherent hardware timing and establish a common start/arm.
+  Starting independent tasks consecutively in Python does not establish phase.
+- Before implementation, verify the specific internal routes, finite-counter
+  behavior and resource use on USB-6351 in NI documentation/DAQmx; commit tasks
+  and validate physical outputs. No assumed arbitrary PFI/internal routing.
+- Prepare and save both voltage arrays and logical sequences before starting.
+- Preload/arm outputs and start TTTR before the accepted trials. Explicitly
+  label any warm-up/pre-roll needed by the laser or SYNC checks.
+- Hardware must define the finite accepted pulse count; a Python duration sleep
+  and stop is insufficient. Validate first and last pulse behavior.
+- Stop laser triggers before resetting voltages, and preserve final events.
+- Begin with short electrical trials at 1 MHz; reduce rate if transitions do not
+  settle. Add photon validation once scope timing passes. Do not require sparse
+  low-rate photon measurements merely to debug electrical timing.
+
+6D. Prove the pulse index
+- A T3 detection contains a SYNC-cycle index and fine arrival time. Extend the
+  counter through normal overflow records; no detection still counts as a trial.
+- Establish the run's excitation-zero origin through hardware markers or an
+  equally demonstrated hardware relationship, not the first detected photon.
+- Plan start/end and sparse checkpoint markers. Their placement relative to
+  SYNC, timing resolution and off-by-one interpretation must be calibrated.
+  Allocate wiring only after checking both instruments' routing/input specs.
+- Keep SYNC divider 1 for initial pulse-index validation. Any future divider
+  change needs an explicit, validated reconstruction rule.
+- Follow simple H,V,R,L with a longer deterministic pattern and unique preamble
+  that reveal offsets by four trials as well as by one. Include Bob's schedule.
+- Accumulate many pattern repetitions, grouping detections by expected state,
+  basis and transition. Low photon probability per individual trial is normal.
+- Detect missing/extra SYNC, data loss, task restart, underflow and inconsistent
+  markers where observable. Do not repair ambiguous indexing by guessing.
+- Check raw decoder with synthetic wraps/markers and intentionally shifted
+  sequences, then validate physical counts/phase on hardware.
+
+Acceptance: measured stable voltage/optical windows, finite pulse-count agreement,
+validated first/last/checkpoint indices, repeatable state-conditioned outcomes,
+and no buffer errors. Freeze a timing profile with evidence before randomization.
+
+7. RANDOMIZED BB84 [depends on stage 6]
+
+- Use the validated timing engine; replace the deterministic sequence with
+  independently selected Alice states and the agreed Bob basis sequence.
+- Save pulse_index, Alice bit/basis/state, Bob basis, both AO command voltages,
+  calibration ID and mapping. Compact arrays plus a versioned mapping are fine;
+  millions of redundant CSV rows are not required.
+- Keep deterministic seeded test runs clearly separate from security runs.
+  Agree appropriate randomness with the protocol owner; protect private
+  sequences and keys from public repositories.
+- Start with short finite blocks, verify every block, then extend duration.
+- Do not regenerate a short random waveform and call the repeats fresh trials.
+  Precomputed sequences may stream from host memory in buffered chunks; Python
+  supplies buffers, while hardware sets every sample/pulse time.
+- 30 million trials require about 480 MB for two float64 AO arrays alone, far
+  beyond the onboard FIFO. Validate host buffering/USB throughput and fail on
+  underruns before claiming uninterrupted 60-second or longer runs.
+- Agree handoff schema, empty/double-detection handling, parameter estimation,
+  gate selection, finite-key/source bounds and validation flags with the analyst.
+  Their software performs reconciliation/privacy amplification, not this plan.
+- Log attempts -> detections -> sifted -> test/reconciliation -> secure bits,
+  with acquisition live time and total wall time separately. A short acquisition
+  is not guaranteed to produce positive finite secure key.
+- Then repeat important loss settings and add long-term stability measurements.
+
+8. REPOSITORY REVIEW AND PROPOSED CONSOLIDATION
+
+Keep useful components; migrate only after their replacements are validated:
+- EOM_gui_log.py: manual alignment/count monitoring. Preserve this workflow.
+- EOM_V_sweep.py: software-timed two-dimensional voltage sweep producing CSV
+  consumed by GeminiSolvedcalibrateBB84Protocol.ipynb. Appropriate for static
+  calibration, not pulse timing. Add settling exclusion, durable saving and
+  explicit exposure/count metadata when this workflow is revised.
+- Notebook: sinusoidal fits -> four Alice voltages/two Bob voltages -> nearest
+  sweep-point matrix. Export a versioned calibration with actual state labels.
+  Review hardcoded grid/file assumptions, trace-1 R-squared calculation, plotted
+  row-label order, fit failure handling and voltage-step size. Fits alone do
+  not establish absolute H/V/R/L orientation or circular handedness.
+- ph330_acquire.py: reuse TTTR backend. Generalize its fixed 2 MHz g2 checks;
+  allow intentional dark/orthogonal states. Current marker inputs are disabled
+  and pre-acquisition SYNC checks need an explicit finite-run arming strategy.
+- ph330_lifetime.py: reuse full-record CH1 histogram/tail fit; make limitations
+  visible and share acquisition/settings instead of building another backend.
+- ph330_preview.py: currently previews a bounded prefix and raw correlations.
+  Make full-run/cumulative statistics and limitations explicit; preserve marker
+  timestamps for synchronization instead of only counting marker records.
+- laser_clock_eom.py: useful manual clock/static-voltage control; it is not the
+  buffered pulse-sequence engine.
+- pulsed and pulsed_GUI have duplicated backends that have already diverged,
+  including clock timebase handling. Audit before merging; do not assume the
+  old CLI copy is interchangeable with the GUI version.
+- archived/Vpi_sweep_analysis contains older one-EOM/polarizer-angle sweep
+  visualization tools (Plotly and Dash), not the present two-EOM calibration.
+  Keep archived until their historical use is confirmed. The root folder now
+  contains only cache material; no deletion is needed to progress.
+- README instructions and old hardware-blocker notes need updating after the
+  chosen workflows are validated. Preserve the user's ongoing repository moves.
+
+Proposed interface: retain one obvious GUI launcher (initially
+pulsed_GUI/launch.py), measurement panels, and one shared Python core for NI,
+PicoHarp, timing, calibration and storage. Thin CLI wrappers may remain useful
+for automation. Avoid maintaining copied hardware implementations.
+
+Proposed data layout (to create during storage implementation):
+  data/lifetime/<timestamp_run-id>/
+  data/g2/<timestamp_run-id>/
+  data/polarization/<timestamp_run-id>/
+  data/timing/<timestamp_run-id>/
+  data/bb84/<timestamp_run-id>/
+  data/eom_calibration/<timestamp_run-id>/
+  data/alignment/<timestamp_run-id>/
+
+Each applicable run includes raw TTTR, run metadata, saved sequences/calibration,
+acquisition log, diagnostics/previews and derived exports in a separate folder.
+Record actual settings: device/library versions, code revision/dirty state,
+trigger edges/levels, divider/resolution/offsets, repetition rate and laser power,
+optical routing, detector labels, voltage units/gain/polarity, planned/generated
+trials, marker interpretation, timestamps, counts and completion/error status.
+Save aborted runs as partial; never label them complete. Ordinary T3 counter
+wraps are valid records; FIFO overrun/data loss is a different failure.
+Exclude private/raw bulk experimental data from public Git by an agreed policy.
+
+9. PAPER GUIDANCE AND REFERENCES
+
+Tools for the performance optimization of single-photon quantum key distribution
+  Kupko et al., npj Quantum Information 6, 29 (2020).
+  DOI: 10.1038/s41534-020-0262-8
+  Local: references/tools for QKD performance.pdf
+  Use Fig. 1(d) time-resolved polarization matrix, gate width/center studies,
+  and stability methods. Its passive four-detector receiver differs from ours;
+  its characterization is not a substitute for randomized encoding. Preserve
+  the distinction between receiver gating and Alice's multiphoton bound.
+
+Quantum Key Distribution Using a Quantum Emitter in Hexagonal Boron Nitride
+  Al-Juboori et al., Advanced Quantum Technologies 6, 2300038 (2023).
+  DOI: 10.1002/qute.202300038
+  Local: references/hBN QKD.pdf
+  Closely relevant: H/V/R/L, Alice and Bob EOMs, HVA200s and two detectors.
+  It uses higher-rate characterization (including 10 MHz g2) and 500 kHz QKD.
+  Its FPGA/multiplexer selection of fixed DAC voltages differs from NI buffered
+  AO; its timing performance does not validate our DAQ output settling.
+
+NI USB-6351 specifications and X Series routing/counter reference:
+  https://www.ni.com/docs/en-US/bundle/pcie-usb-6351-specs/page/specs.html
+  https://docs-be.ni.com/bundle/pcie-pxie-usb-63xx-features/raw/resource/enus/370784k.pdf
+PicoHarp 330 manual (T3 records, SYNC and marker configuration):
+  https://downloads.picoquant.com/manuals/PicoHarp330_Manual.pdf
+Thorlabs HVA200 reference (confirm against the installed unit's manual):
+  https://www.thorlabs.com/catalogPages/v20/823.pdf
+
+10. DECISION LOG
+
+2026-09-20: User confirms AO0 = Alice and AO1 = Bob. Updated architecture.
+2026-09-20: User confirms random Bob basis switching on every final BB84 trial.
+           Use deterministic Bob schedules during diagnostic tests first.
+2026-09-20: External laser triggering marked working based on user report.
+2026-09-20: User reports clean 1 kHz-1 MHz external triggering; routine photon
+           acquisition should favor >=500 kHz. Try switching at 1 MHz first,
+           with 500-750 kHz the likely practical operating range. HVA settling
+           remains unmeasured; DAQ-to-PicoHarp marker wiring is unanswered.
+2026-09-20: Draft proposes ungated TTTR storage, staged high-rate/static and
+           low-rate/pulse-resolved validation, then randomized acquisition.
+           Measured timing and marker wiring remain open.
+2026-09-20: Added detailed HVA monitor scope procedure, worst-step pattern,
+           trigger-phase sweep and evidence to save. Scope model/channel count
+           remain to be established before instrument-specific setup guidance.
+Next discussion: resolve those open points, choose the first small implementation
+increment, then record its measured acceptance evidence here.

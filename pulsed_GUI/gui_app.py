@@ -11,6 +11,7 @@ import traceback
 import tkinter as tk
 from tkinter import filedialog, ttk
 from tkinter.scrolledtext import ScrolledText
+from pulsed_polarization import FORM as POLARIZATION_FORM, HELP_TEXT as POLARIZATION_HELP
 
 ROOT = Path(__file__).resolve().parent
 SETTINGS = ROOT / "gui_settings.json"
@@ -19,6 +20,8 @@ TOOLS = {
     "Connection test": "ph330",
     "Laser clock": "laser_clock",
     "Laser clock + EOM": "laser_clock_eom",
+    "EOM timing scope": "eom_timing_scope",
+    "Pulsed polarization": "pulsed_polarization",
     "G2 acquisition": "ph330_acquire",
     "Preview saved run": "ph330_preview",
     "CH1 lifetime": "ph330_lifetime",
@@ -36,6 +39,22 @@ COMMON = [
     ("ch1-level-mv", "CH1 threshold (mV)", "300", None),
 ]
 SPECS = {
+    "Pulsed polarization": POLARIZATION_FORM,
+    "EOM timing scope": [
+        ("action", "Action", "Check settings", ["Check settings", "Output timing pattern"]),
+        ("device", "NI device (USB-6351)", "Dev1", None),
+        ("frequency-hz", "Laser trigger / AO sample rate (Hz)", "1000000", None),
+        ("delay-ns", "NI trigger delay after AO sample clock (ns; nominal)", "500", None),
+        ("high-ns", "Positive laser-trigger pulse width (ns)", "100", None),
+        ("hold-pulses", "Laser pulses per voltage level (20 = long hold; 1 = every pulse)", "20", None),
+        ("alice-a-v", "Alice / AO0 level A: EOM target V (DAQ = -V/20)", "0", None),
+        ("alice-b-v", "Alice / AO0 level B: enter calibrated EOM target V", "0", None),
+        ("bob-a-v", "Bob / AO1 level A: EOM target V (DAQ = -V/20)", "0", None),
+        ("bob-b-v", "Bob / AO1 level B: same as A to hold Bob fixed", "0", None),
+        ("seconds", "Duration (s; 0 = run until Stop)", "0", None),
+        ("output", "Timing data directory", str(ROOT.parent / "data" / "timing"), "directory"),
+        ("note", "Scope settings / measured settling / notes", "", None),
+    ],
     "Laser clock + EOM": [
         ("action", "Action", "Check settings", ["Check settings", "Output clock + EOM"]),
         ("device", "NI device", "Dev1", None),
@@ -94,6 +113,8 @@ SPECS = {
     ],
 }
 HELP = {
+    "Pulsed polarization": POLARIZATION_HELP,
+    "EOM timing scope": "USB-6351 buffered AO0/AO1 + delayed Ctr0/PFI12. Enter calibrated A/B targets; all defaults are 0 V. Uses -20 amplifier gain. Monitor is HV/20 into high impedance. TTL OUT and TRG OUT were reported aligned within ~1 ns on this bench. Stop, edit, Run to adjust. Stop returns AO to 0 V. Close other AO/clock tools.",
     "Laser clock + EOM": "Manual alignment: Ctr0/PFI12 clock plus static AO0/AO1 biases. EOM targets ±200 V using the existing −20 gain convention. Apply EOM keeps the clock running; Apply clock briefly stops/restarts it. Stop returns both AO channels to 0 V.",
     "Connection test": "Close UniHarp first. Find devices opens/closes the PicoHarp without starting a measurement.",
     "Laser clock": "Ctr0 → PFI12. Check on an oscilloscope first. The DAQ/laser impedance interface is still required. Duration is approximate.",
@@ -135,6 +156,8 @@ def arguments(tool, values):
     """Convert form values to the copied backends' existing, tested arguments."""
     action = values.get("action")
     args = []
+    if tool == "Pulsed polarization":
+        return []  # This GUI-native tool receives the form directly, without a CLI translation.
     if tool == "Connection test":
         keys = ["dll"]
         if action == "Find devices":
@@ -145,6 +168,12 @@ def arguments(tool, values):
             keys += ["eom1-v", "eom2-v"]
         args += ["--note", values["note"]]
         if action in ("Output clock", "Output clock + EOM"):
+            args.append("--run")
+    elif tool == "EOM timing scope":
+        keys = ["device", "frequency-hz", "delay-ns", "high-ns", "hold-pulses",
+                "alice-a-v", "alice-b-v", "bob-a-v", "bob-b-v", "seconds", "output"]
+        args += ["--note", values["note"]]
+        if action == "Output timing pattern":
             args.append("--run")
     elif tool == "Preview saved run":
         args.append(required(values, "folder"))
@@ -172,9 +201,13 @@ def arguments(tool, values):
 
 
 def execute(tool, values, stop_event, commands=None):
+    if tool == "Pulsed polarization":
+        if stop_event.is_set():
+            return 130
+        return importlib.import_module(TOOLS[tool]).main(values, stop_event=stop_event)
     args = arguments(tool, values)
     module = importlib.import_module(TOOLS[tool])
-    kwargs = {"stop_event": stop_event} if tool in ("Laser clock", "Laser clock + EOM", "G2 acquisition", "CH1 lifetime") else {}
+    kwargs = {"stop_event": stop_event} if tool in ("Laser clock", "Laser clock + EOM", "EOM timing scope", "G2 acquisition", "CH1 lifetime") else {}
     if tool == "Laser clock + EOM":
         kwargs["commands"] = commands
     if stop_event.is_set():
@@ -374,7 +407,7 @@ class App:
             self.apply_clock_button.configure(state="normal")
         self.folder_button.configure(state="disabled")
         self.plot_button.configure(state="disabled")
-        can_stop = values.get("action") in ("Record", "Output clock", "Output clock + EOM")
+        can_stop = values.get("action") in ("Record", "Output clock", "Output clock + EOM", "Output timing pattern")
         self.stop_button.configure(state="normal" if can_stop else "disabled")
         self.status.set("Running…")
         self.write(f"\n--- {tool}: {values.get('action', 'Analyze')} ---\n")
