@@ -13,11 +13,13 @@ from laser_clock import clock_plan
 from laser_clock_eom import eom_plan, prepared_clock
 from ph330 import PH330, DEFAULT_DLL
 import ph330_acquire as acquisition
+from record_io import save_json
 
 ROOT = Path(__file__).resolve().parent
 STATES = ("H", "V", "R", "L")
 INDEX_STATES = ("S0", "S1", "S2", "S3")
 BASES = ("HV", "RL")
+INTERNAL_SOURCES = {f"Laser internal {rate} MHz": rate * 1000000 for rate in (2, 20, 80)}
 HELP_TEXT = (
     "Static baseline: 4 Alice states x 2 Bob bases, both detectors at each setting. "
     "Enter calibrated EOM target volts (-20 gain), not DAQ volts. Alice S0/S1/S2/S3 follow notebook array order; "
@@ -27,11 +29,11 @@ HELP_TEXT = (
 )
 FORM = [
     ("action", "Action", "Check settings", ["Check settings", "Record", "Analyze saved run"]),
-    ("seconds", "Recording duration PER setting (s; eight settings)", "10", None),
+    ("seconds", "Seconds at EACH voltage pair (8 recordings total)", "60", None),
     ("device", "NI device (USB-6351)", "Dev1", None),
-    ("source", "Laser clock source", "NI external", ["NI external", "Laser internal"]),
-    ("laser-hz", "Laser repetition rate (Hz)", "500000", None),
-    ("internal-ready", "Internal mode: PFI12 disconnected, laser rate manually selected", "No", ["No", "Yes"]),
+    ("source", "Laser source / bypass NI trigger for troubleshooting", "NI external", ["NI external", *INTERNAL_SOURCES]),
+    ("laser-hz", "External laser rate (Hz); internal rate is set by source above", "500000", None),
+    ("internal-ready", "Internal mode: I disconnected PFI12 and selected that rate on the laser", "No", ["No", "Yes"]),
     ("high-ns", "NI trigger high time (ns; external only)", "100", None),
     ("warmup-s", "Laser warm-up before first recording (s)", "1", None),
     ("settle-ms", "Pause after each static voltage change (ms)", "100", None),
@@ -48,9 +50,11 @@ FORM = [
     ("serial", "PicoHarp serial", "1050578", None),
     ("binning", "T3 binning code (6 = 64 ps on this device)", "6", None),
     *[item for prefix, label, level, offset in (
-        ("sync", "SYNC", "-250", "0"), ("ch1", "CH1", "200", "0"), ("ch2", "CH2", "200", "4.5"))
-      for item in ((f"{prefix}-edge", f"{label} edge: match your working UniHarp setting", "", ["rising", "falling"]),
+        ("sync", "SYNC", "-60", "0"), ("ch1", "CH1", "200", "0"), ("ch2", "CH2", "200", "4.5"))
+      for item in ((f"{prefix}-mode", f"{label} trigger mode", "edge", ["edge", "cfd"]),
+                   (f"{prefix}-edge", f"{label} edge: match your working UniHarp setting", "falling" if prefix == "sync" else "rising", ["rising", "falling"]),
                    (f"{prefix}-level-mv", f"{label} edge threshold (mV, signed)", level, None),
+                   (f"{prefix}-zero", f"{label} CFD zero crossing (mV; CFD only)", "-10", None),
                    (f"{prefix}-offset-ns", f"{label} channel offset (ns; applied once in hardware)", offset, None))],
     ("gate", "Optional gate for analysis ONLY", "No", ["No", "Yes"]),
     ("gate-start-ns", "Gate start (ns after SYNC, inclusive)", "0", None),
@@ -84,10 +88,11 @@ def analysis_options(values):
 
 def settings(values):
     """Validate before any DLL loading or NI task creation."""
-    source = values["source"]
+    source_choice = values["source"]
+    source = "Laser internal" if source_choice in INTERNAL_SOURCES else source_choice
     if source not in ("NI external", "Laser internal"):
         raise ValueError("Select the laser clock source.")
-    hz = number(values, "laser-hz", 1000, 80_000_000)
+    hz = INTERNAL_SOURCES[source_choice] if source_choice in INTERNAL_SOURCES else number(values, "laser-hz", 1000, 80_000_000)
     clock = None
     if source == "NI external":
         if hz > 1_000_000:
@@ -116,8 +121,11 @@ def settings(values):
 
     def trigger(prefix):
         offset = number(values, prefix + "-offset-ns", -99, 99)
-        return dict(mode="edge", edge=values[prefix + "-edge"],
+        result = dict(mode=values.get(prefix + "-mode", "edge"), edge=values[prefix + "-edge"],
                     level_mv=int(values[prefix + "-level-mv"]), offset_ps=round(offset * 1000))
+        if result["mode"] == "cfd":
+            result["zero_cross_mv"] = int(values[prefix + "-zero"])
+        return result
 
     ph = dict(device_index=int(values["device-index"]), serial=values["serial"].strip(),
               laser_hz=hz, sync_divider=1, binning=int(values["binning"]), sync=trigger("sync"),
@@ -136,12 +144,6 @@ def settings(values):
                 warmup_s=number(values, "warmup-s", 0, 3600), ph330=ph,
                 dll=values["dll"], note=values["note"], analysis=options,
                 hv_gain=-20, ao_channels=["ao0", "ao1"], exact_excitation_count=None)
-
-
-def save_json(path, value):
-    temporary = path.with_suffix(".tmp")
-    temporary.write_text(json.dumps(value, indent=2, allow_nan=False) + "\n", encoding="utf-8")
-    temporary.replace(path)
 
 
 def pause(stop, seconds):

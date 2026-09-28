@@ -1,6 +1,6 @@
 # Laser clock + EOM + live PicoHarp counts
 
-Open `launch.py` or `gui_app.py`, choose **Clock + EOM + live counts**, or run
+Open `launch.py` or `gui_app.py`, choose **Live alignment**, or run
 `laser_clock_eom_counts.py` directly in VS Code. Opening the form does not
 access hardware.
 

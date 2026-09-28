@@ -1,4 +1,4 @@
-"""Parameter windows for the copied pulsed tools. Opening a window never accesses hardware."""
+"""Grouped experiment controls. Opening a window never accesses hardware."""
 from contextlib import redirect_stdout, redirect_stderr
 import importlib
 import json
@@ -13,21 +13,39 @@ from tkinter import filedialog, ttk
 from tkinter.scrolledtext import ScrolledText
 from pulsed_polarization import FORM as POLARIZATION_FORM, HELP_TEXT as POLARIZATION_HELP
 from laser_clock_eom_counts import TOOL as LIVE_COUNTS_TOOL, FORM as LIVE_COUNTS_FORM, HELP as LIVE_COUNTS_HELP
+import bb84_controls as bb84
+import eom_voltage_sweep as sweep
 
 ROOT = Path(__file__).resolve().parent
 SETTINGS = ROOT / "gui_settings.json"
 DLL = r"C:\Program Files\PicoQuant\UniHarp\PH330Lib.dll"
 TOOLS = {
     LIVE_COUNTS_TOOL: "laser_clock_eom_counts",
+    sweep.TOOL: "eom_voltage_sweep",
+    "Pulsed polarization": "pulsed_polarization",
+    bb84.ORDERED: "bb84_controls",
+    bb84.RANDOM: "bb84_controls",
+    "CH1 lifetime": "ph330_lifetime",
+    "EOM timing scope": "eom_timing_scope",
     "Connection test": "ph330",
     "Laser clock": "laser_clock",
     "Laser clock + EOM": "laser_clock_eom",
-    "EOM timing scope": "eom_timing_scope",
-    "Pulsed polarization": "pulsed_polarization",
     "G2 acquisition": "ph330_acquire",
     "Preview saved run": "ph330_preview",
-    "CH1 lifetime": "ph330_lifetime",
 }
+DISPLAY_NAMES = {LIVE_COUNTS_TOOL: "Live alignment", "Pulsed polarization": "Polarization matrix",
+                 "CH1 lifetime": "Arrival time / lifetime (CH1)", "EOM timing scope": "EOM timing on scope",
+                 "Connection test": "Device connection", "Laser clock": "Advanced: laser clock only",
+                 "Laser clock + EOM": "Advanced: clock + static voltages", "G2 acquisition": "Advanced: two-channel T3",
+                 "Preview saved run": "Advanced: raw T3 preview"}
+
+
+def display_name(tool):
+    return DISPLAY_NAMES.get(tool, tool)
+
+
+def internal_name(label):
+    return next((key for key in TOOLS if display_name(key) == label), label)
 
 # name, visible label (with units), initial value, optional choices or file picker.
 COMMON = [
@@ -41,13 +59,16 @@ COMMON = [
     ("ch1-level-mv", "CH1 threshold (mV)", "300", None),
 ]
 SPECS = {
+    sweep.TOOL: sweep.FORM,
+    bb84.ORDERED: bb84.form("ordered"),
+    bb84.RANDOM: bb84.form("random"),
     LIVE_COUNTS_TOOL: LIVE_COUNTS_FORM,
     "Pulsed polarization": POLARIZATION_FORM,
     "EOM timing scope": [
         ("action", "Action", "Check settings", ["Check settings", "Output timing pattern"]),
         ("device", "NI device (USB-6351)", "Dev1", None),
-        ("frequency-hz", "Laser trigger / AO sample rate (Hz)", "1000000", None),
-        ("delay-ns", "NI trigger delay after AO sample clock (ns; nominal)", "500", None),
+        ("frequency-hz", "Laser trigger / AO sample rate (Hz)", "500000", None),
+        ("delay-ns", "NI trigger delay after AO sample clock (ns; nominal)", "1200", None),
         ("high-ns", "Positive laser-trigger pulse width (ns)", "100", None),
         ("hold-pulses", "Laser pulses per voltage level (20 = long hold; 1 = every pulse)", "20", None),
         ("alice-a-v", "Alice / AO0 level A: EOM target V (DAQ = -V/20)", "0", None),
@@ -116,6 +137,9 @@ SPECS = {
     ],
 }
 HELP = {
+    sweep.TOOL: sweep.HELP,
+    bb84.ORDERED: "Alice repeats H, V, R, L; Bob holds H/V for four trials, then R/L for four. " + bb84.HELP,
+    bb84.RANDOM: "Alice's four states and Bob's two bases are chosen independently each trial using OS randomness. " + bb84.HELP,
     LIVE_COUNTS_TOOL: LIVE_COUNTS_HELP,
     "Pulsed polarization": POLARIZATION_HELP,
     "EOM timing scope": "USB-6351 buffered AO0/AO1 + delayed Ctr0/PFI12. Enter calibrated A/B targets; all defaults are 0 V. Uses -20 amplifier gain. Monitor is HV/20 into high impedance. TTL OUT and TRG OUT were reported aligned within ~1 ns on this bench. Stop, edit, Run to adjust. Stop returns AO to 0 V. Close other AO/clock tools.",
@@ -130,6 +154,52 @@ HELP = {
 
 def defaults(tool):
     return {key: value for key, _, value, _ in SPECS[tool]}
+
+
+def field_group(key):
+    if key.startswith(("alice-", "bob-", "eom1-", "eom2-")) or key in ("hv-ch1", "rl-ch1", "labels-confirmed"):
+        return "Voltages"
+    if key.startswith(("sync-", "ch1-", "ch2-")) or key in ("dll", "device-index", "serial", "binning"):
+        return "PicoHarp"
+    if key.startswith(("gate", "fit", "plot-")) or key in ("rebin", "folder", "max-records", "preview"):
+        return "Analysis"
+    if key in ("output", "log-dir", "note", "notes"):
+        return "Files"
+    return "Run"
+
+
+def initial_settings(tool, settings):
+    """Migrate old profiles and seed new modes without overwriting saved choices."""
+    saved = settings.get(tool, {})
+    saved = dict(saved) if isinstance(saved, dict) else {}
+    if tool == sweep.TOOL and not saved:
+        previous = settings.get("Pulsed polarization", {})
+        if isinstance(previous, dict):
+            saved = {k: v for k, v in previous.items() if k in ("dll", "serial", "device-index", "binning")
+                     or k.startswith(("sync-", "ch1-", "ch2-"))}
+    if tool == "Pulsed polarization" and saved.get("source") == "Laser internal":
+        from pulsed_polarization import INTERNAL_SOURCES
+        saved["source"] = next((name for name, hz in INTERNAL_SOURCES.items()
+                                if str(hz) == str(saved.get("laser-hz", ""))), "Laser internal 2 MHz")
+    if tool == LIVE_COUNTS_TOOL and not saved:
+        previous = settings.get("G2 acquisition", {})
+        if isinstance(previous, dict):
+            saved = {k: v for k, v in previous.items()
+                     if k in ("dll", "serial", "device-index") or k.startswith(("sync-", "ch1-", "ch2-"))}
+    if tool in bb84.MODES and not saved:
+        previous = settings.get("Pulsed polarization", {})
+        if isinstance(previous, dict):
+            saved = {k: v for k, v in previous.items() if k in ("dll", "serial", "device-index", "binning", "bob-hv-v", "bob-rl-v")
+                     or k.startswith(("sync-", "ch1-", "ch2-"))}
+            labels = [previous.get(f"alice-{i}-state") for i in range(4)]
+            assigned = previous.get("alice-labels") == "Assigned H/V/R/L" and set(labels) == set("HVRL")
+            # The notebook's opposite pairs are 0/2 and 1/3. Labels remain provisional.
+            labels = labels if assigned else ["H", "R", "V", "L"]
+            for i, label in enumerate(labels):
+                if f"alice-{i}-v" in previous:
+                    saved[f"alice-{label.lower()}-v"] = previous[f"alice-{i}-v"]
+            saved["labels-confirmed"] = "No"  # Bob's physical basis assignment still needs confirmation.
+    return saved
 
 
 def required(values, key):
@@ -160,6 +230,10 @@ def arguments(tool, values):
     """Convert form values to the copied backends' existing, tested arguments."""
     action = values.get("action")
     args = []
+    if tool == sweep.TOOL:
+        return []
+    if tool in bb84.MODES:
+        return []
     if tool == LIVE_COUNTS_TOOL:
         from laser_clock_eom_counts import settings
         settings(values)
@@ -209,6 +283,10 @@ def arguments(tool, values):
 
 
 def execute(tool, values, stop_event, commands=None, samples=None, emit=None):
+    if tool == sweep.TOOL:
+        return sweep.main(values, stop_event)
+    if tool in bb84.MODES:
+        return bb84.main(values, bb84.MODES[tool], stop_event)
     if tool == LIVE_COUNTS_TOOL:
         if stop_event.is_set():
             return 130
@@ -249,7 +327,7 @@ class QueueWriter:
 
 
 class App:
-    def __init__(self, root, tool="CH1 lifetime"):
+    def __init__(self, root, tool=LIVE_COUNTS_TOOL):
         self.root = root
         root.title("Pulsed experiment controls")
         root.geometry("1100x780")
@@ -268,11 +346,12 @@ class App:
                 self.settings = saved
         except (OSError, ValueError):
             pass
-        self.tool = tk.StringVar(value=tool)
+        tool = internal_name(tool)
+        self.tool = tk.StringVar(value=display_name(tool))
         top = ttk.Frame(root, padding=12)
         top.pack(fill="x")
         ttk.Label(top, text="Tool").pack(side="left", padx=(0, 10))
-        self.selector = ttk.Combobox(top, textvariable=self.tool, values=list(TOOLS), state="readonly", width=25)
+        self.selector = ttk.Combobox(top, textvariable=self.tool, values=[display_name(t) for t in TOOLS], state="readonly", width=34)
         self.selector.pack(side="left")
         self.selector.bind("<<ComboboxSelected>>", self.change_tool)
         ttk.Label(top, text="No hardware starts until you click Run.").pack(side="left", padx=16)
@@ -288,15 +367,9 @@ class App:
         panes.pack(fill="both", expand=True, padx=12)
         left = ttk.Frame(panes)
         panes.add(left, weight=3)
-        self.canvas = tk.Canvas(left, highlightthickness=0, width=560)
-        scroll = ttk.Scrollbar(left, orient="vertical", command=self.canvas.yview)
-        self.canvas.configure(yscrollcommand=scroll.set)
-        scroll.pack(side="right", fill="y")
-        self.canvas.pack(side="left", fill="both", expand=True)
-        self.form = ttk.Frame(self.canvas, padding=(0, 0, 12, 12))
-        self.form_id = self.canvas.create_window((0, 0), window=self.form, anchor="nw")
-        self.form.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
-        self.canvas.bind("<Configure>", lambda e: self.canvas.itemconfigure(self.form_id, width=e.width))
+        self.tabs = ttk.Notebook(left)
+        self.tabs.pack(fill="both", expand=True)
+        self.pages = {}
         root.bind("<MouseWheel>", self.scroll_form)
         right = ttk.Frame(panes)
         panes.add(right, weight=2)
@@ -327,8 +400,10 @@ class App:
     def scroll_form(self, event):
         # Do not scroll the form when the pointer is over the independent log panel.
         widget = self.root.winfo_containing(event.x_root, event.y_root)
-        if widget and (str(widget).startswith(str(self.form)) or widget == self.canvas):
-            self.canvas.yview_scroll(-int(event.delta / 120), "units")
+        for canvas, form in self.pages.values():
+            if widget and (str(widget).startswith(str(form)) or widget == canvas):
+                canvas.yview_scroll(-int(event.delta / 120), "units")
+                break
 
     def remember(self):
         self.settings[self.current_tool] = self.values()
@@ -341,50 +416,130 @@ class App:
 
     def change_tool(self, _event=None):
         self.remember()
-        self.current_tool = self.tool.get()
+        self.current_tool = internal_name(self.tool.get())
+        self.tool.set(display_name(self.current_tool))
         self.build_form()
 
     def build_form(self):
-        for child in self.form.winfo_children():
+        for child in self.tabs.winfo_children():
             child.destroy()
+        self.pages = {}
         self.vars = {}
         self.inputs = []
+        self.fields = {}
         self.live_inputs = []
         if self.current_tool == "Laser clock + EOM":
             self.livebar.pack(fill="x", padx=12, pady=(0, 8), before=self.panes)
         else:
             self.livebar.pack_forget()
         self.help.configure(text=HELP[self.current_tool])
-        saved = self.settings.get(self.current_tool, {})
-        if not isinstance(saved, dict):
-            saved = {}
-        if self.current_tool == LIVE_COUNTS_TOOL and not saved:
-            # Seed input settings from the user's existing two-channel tool once.
-            # Never copy its action, obsolete expected laser rate or output voltages.
-            previous = self.settings.get("G2 acquisition", {})
-            if isinstance(previous, dict):
-                saved = {key: value for key, value in previous.items()
-                         if key in ("dll", "serial", "device-index") or key.startswith(("sync-", "ch1-", "ch2-"))}
-        for row, (key, label, initial, kind) in enumerate(SPECS[self.current_tool]):
+        saved = initial_settings(self.current_tool, self.settings)
+        groups = {field_group(spec[0]) for spec in SPECS[self.current_tool]}
+        rows = {}
+        for group in ("Run", "Voltages", "PicoHarp", "Analysis", "Files"):
+            if group not in groups:
+                continue
+            page = ttk.Frame(self.tabs)
+            self.tabs.add(page, text=group)
+            canvas = tk.Canvas(page, highlightthickness=0, width=560)
+            scroll = ttk.Scrollbar(page, orient="vertical", command=canvas.yview)
+            canvas.configure(yscrollcommand=scroll.set)
+            scroll.pack(side="right", fill="y")
+            canvas.pack(side="left", fill="both", expand=True)
+            form = ttk.Frame(canvas, padding=(8, 0, 12, 12))
+            form_id = canvas.create_window((0, 0), window=form, anchor="nw")
+            form.bind("<Configure>", lambda e, c=canvas: c.configure(scrollregion=c.bbox("all")))
+            canvas.bind("<Configure>", lambda e, c=canvas, i=form_id: c.itemconfigure(i, width=e.width))
+            form.columnconfigure(0, weight=1)
+            self.pages[group] = (canvas, form)
+            rows[group] = 0
+        for key, label, initial, kind in SPECS[self.current_tool]:
+            group = field_group(key)
+            canvas, form = self.pages[group]
+            row = rows[group]
+            rows[group] += 1
             value = str(saved.get(key, initial))
             if isinstance(kind, list) and value not in kind:
                 value = initial
             var = self.vars[key] = tk.StringVar(value=value)
-            ttk.Label(self.form, text=label, wraplength=510).grid(row=row*2, column=0, columnspan=2, sticky="w", pady=(7, 2))
+            ttk.Label(form, text=label, wraplength=510).grid(row=row*2, column=0, columnspan=2, sticky="w", pady=(7, 2))
             if isinstance(kind, list):
-                field = ttk.Combobox(self.form, textvariable=var, values=kind, state="readonly")
+                field = ttk.Combobox(form, textvariable=var, values=kind, state="readonly")
             else:
-                field = ttk.Entry(self.form, textvariable=var)
+                field = ttk.Entry(form, textvariable=var)
             field.grid(row=row*2+1, column=0, sticky="ew")
             self.inputs.append((field, "readonly" if isinstance(kind, list) else "normal"))
+            self.fields[key] = (field, "readonly" if isinstance(kind, list) else "normal")
             if key in ("frequency-hz", "high-ns", "eom1-v", "eom2-v"):
                 self.live_inputs.append(field)
             if kind in ("file", "directory"):
-                button = ttk.Button(self.form, text="Browse…", command=lambda v=var, k=kind: self.browse(v, k))
+                button = ttk.Button(form, text="Browse…", command=lambda v=var, k=kind: self.browse(v, k))
                 button.grid(row=row*2+1, column=1, padx=(5, 0))
                 self.inputs.append((button, "normal"))
-        self.form.columnconfigure(0, weight=1)
-        self.canvas.yview_moveto(0)
+        self.canvas, self.form = next(iter(self.pages.values()))
+        self._last_source = self.vars.get("source").get() if "source" in self.vars else None
+        self._external_hz = self.vars.get("laser-hz").get() if self._last_source == "NI external" else "500000"
+        # Physical rewiring confirmations must be renewed each time this form is opened.
+        if "internal-ready" in self.vars:
+            self.vars["internal-ready"].set("No")
+        if "manual-ready" in self.vars:
+            self.vars["manual-ready"].set("No")
+        for key in ("source", "timing-profile", "sync-mode", "ch1-mode", "ch2-mode", "gate", "alice-labels"):
+            if key in self.vars:
+                self.vars[key].trace_add("write", lambda *_: self.controls_changed())
+        self.controls_changed()
+
+    def controls_changed(self):
+        if self.running:
+            return
+        def enable(key, allowed):
+            if key in self.fields:
+                widget, normal = self.fields[key]
+                widget.configure(state=normal if allowed else "disabled")
+        if self.current_tool == sweep.TOOL:
+            source = self.vars["source"].get()
+            if source != self._last_source:
+                self.vars["manual-ready"].set("No")
+                self._last_source = source
+            enable("laser-hz", source == sweep.NI)
+            enable("high-ns", source == sweep.NI)
+            enable("manual-ready", source != sweep.NI)
+            enable("binning", source != sweep.CW)
+        if self.current_tool == "Pulsed polarization":
+            from pulsed_polarization import INTERNAL_SOURCES
+            source = self.vars["source"].get()
+            internal = source in INTERNAL_SOURCES
+            if source != self._last_source:
+                if self._last_source == "NI external":
+                    self._external_hz = self.vars["laser-hz"].get()
+                self.vars["internal-ready"].set("No")
+                if not internal:
+                    self.vars["laser-hz"].set(self._external_hz)
+                self._last_source = source
+            if internal:
+                self.vars["laser-hz"].set(str(INTERNAL_SOURCES[source]))
+            enable("laser-hz", not internal)
+            enable("high-ns", not internal)
+            enable("internal-ready", internal)
+        if self.current_tool in bb84.MODES:
+            profile = self.vars["timing-profile"].get()
+            if profile in bb84.PRESETS:
+                hz, delay = bb84.PRESETS[profile]
+                self.vars["frequency-hz"].set(str(hz))
+                self.vars["delay-ns"].set(str(delay))
+            enable("frequency-hz", profile == "Custom")
+            enable("delay-ns", profile == "Custom")
+        for prefix in ("sync", "ch1", "ch2"):
+            if prefix + "-mode" in self.vars:
+                cfd = self.vars[prefix + "-mode"].get() == "cfd"
+                enable(prefix + "-zero", cfd)
+                enable(prefix + "-edge", not cfd)
+        if "gate" in self.vars:
+            for key in ("gate-start-ns", "gate-stop-ns"):
+                enable(key, self.vars["gate"].get() == "Yes")
+        if "alice-labels" in self.vars:
+            for i in range(4):
+                enable(f"alice-{i}-state", self.vars["alice-labels"].get() == "Assigned H/V/R/L")
 
     def browse(self, var, kind):
         path = filedialog.askdirectory(parent=self.root) if kind == "directory" else filedialog.askopenfilename(parent=self.root)
@@ -440,7 +595,7 @@ class App:
             self.apply_clock_button.configure(state="normal")
         self.folder_button.configure(state="disabled")
         self.plot_button.configure(state="disabled")
-        can_stop = values.get("action") in ("Record", "Output clock", "Output clock + EOM", "Output timing pattern", "Start live controls")
+        can_stop = values.get("action") in ("Run sweep", "Record", "Prepare sequence only", "Output clock", "Output clock + EOM", "Output timing pattern", "Start live controls")
         self.stop_button.configure(state="normal" if can_stop else "disabled")
         self.status.set("Running…")
         self.write(f"\n--- {tool}: {values.get('action', 'Analyze')} ---\n")
@@ -527,6 +682,7 @@ class App:
                     self.selector.configure(state="readonly")
                     for widget, state in self.inputs:
                         widget.configure(state=state)
+                    self.controls_changed()
                     self.stop_button.configure(state="disabled")
                     self.folder_button.configure(state="normal" if self.last_folder else "disabled")
                     self.plot_button.configure(state="normal" if self.last_plot else "disabled")
@@ -582,7 +738,7 @@ class App:
         self.root.destroy()
 
 
-def launch(tool="CH1 lifetime"):
+def launch(tool=LIVE_COUNTS_TOOL):
     root = tk.Tk()
     App(root, tool)
     root.mainloop()

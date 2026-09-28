@@ -1,7 +1,7 @@
 {
   "schema": "qkd-static-polarization-v1",
-  "status": "running",
-  "complete": false,
+  "status": "completed",
+  "complete": true,
   "settings": {
     "source": "NI external",
     "device": "Dev1",
@@ -84,7 +84,7 @@
       "number": 1,
       "alice": "S0",
       "bob": "HV",
-      "status": "acquiring",
+      "status": "completed",
       "target_eom_v": [
         -46.6,
         70.6
@@ -95,10 +95,170 @@
       ],
       "assumed_hv_gain": -20.0,
       "host_start_utc": "2026-09-28T02:26:46.254466+00:00",
-      "directory": "01_Alice_S0_Bob_HV"
+      "directory": "01_Alice_S0_Bob_HV",
+      "raw_folder": "01_Alice_S0_Bob_HV\\20260928T022650_064120Z",
+      "photon_counts": [
+        5278,
+        9959
+      ]
+    },
+    {
+      "number": 2,
+      "alice": "S0",
+      "bob": "RL",
+      "status": "completed",
+      "target_eom_v": [
+        -46.6,
+        -32.4
+      ],
+      "daq_v": [
+        2.33,
+        1.6199999999999999
+      ],
+      "assumed_hv_gain": -20.0,
+      "host_start_utc": "2026-09-28T02:28:30.141419+00:00",
+      "directory": "02_Alice_S0_Bob_RL",
+      "raw_folder": "02_Alice_S0_Bob_RL\\20260928T022832_983174Z",
+      "photon_counts": [
+        5295,
+        9763
+      ]
+    },
+    {
+      "number": 3,
+      "alice": "S1",
+      "bob": "HV",
+      "status": "completed",
+      "target_eom_v": [
+        64.3,
+        70.6
+      ],
+      "daq_v": [
+        -3.215,
+        -3.53
+      ],
+      "assumed_hv_gain": -20.0,
+      "host_start_utc": "2026-09-28T02:30:13.078245+00:00",
+      "directory": "03_Alice_S1_Bob_HV",
+      "raw_folder": "03_Alice_S1_Bob_HV\\20260928T023015_801399Z",
+      "photon_counts": [
+        5282,
+        9780
+      ]
+    },
+    {
+      "number": 4,
+      "alice": "S1",
+      "bob": "RL",
+      "status": "completed",
+      "target_eom_v": [
+        64.3,
+        -32.4
+      ],
+      "daq_v": [
+        -3.215,
+        1.6199999999999999
+      ],
+      "assumed_hv_gain": -20.0,
+      "host_start_utc": "2026-09-28T02:31:55.877010+00:00",
+      "directory": "04_Alice_S1_Bob_RL",
+      "raw_folder": "04_Alice_S1_Bob_RL\\20260928T023158_632070Z",
+      "photon_counts": [
+        5180,
+        9995
+      ]
+    },
+    {
+      "number": 5,
+      "alice": "S2",
+      "bob": "HV",
+      "status": "completed",
+      "target_eom_v": [
+        175.3,
+        70.6
+      ],
+      "daq_v": [
+        -8.765,
+        -3.53
+      ],
+      "assumed_hv_gain": -20.0,
+      "host_start_utc": "2026-09-28T02:33:38.711607+00:00",
+      "directory": "05_Alice_S2_Bob_HV",
+      "raw_folder": "05_Alice_S2_Bob_HV\\20260928T023341_568725Z",
+      "photon_counts": [
+        5199,
+        9941
+      ]
+    },
+    {
+      "number": 6,
+      "alice": "S2",
+      "bob": "RL",
+      "status": "completed",
+      "target_eom_v": [
+        175.3,
+        -32.4
+      ],
+      "daq_v": [
+        -8.765,
+        1.6199999999999999
+      ],
+      "assumed_hv_gain": -20.0,
+      "host_start_utc": "2026-09-28T02:35:21.681062+00:00",
+      "directory": "06_Alice_S2_Bob_RL",
+      "raw_folder": "06_Alice_S2_Bob_RL\\20260928T023524_571287Z",
+      "photon_counts": [
+        5247,
+        9948
+      ]
+    },
+    {
+      "number": 7,
+      "alice": "S3",
+      "bob": "HV",
+      "status": "completed",
+      "target_eom_v": [
+        -157.56,
+        70.6
+      ],
+      "daq_v": [
+        7.878,
+        -3.53
+      ],
+      "assumed_hv_gain": -20.0,
+      "host_start_utc": "2026-09-28T02:37:04.679786+00:00",
+      "directory": "07_Alice_S3_Bob_HV",
+      "raw_folder": "07_Alice_S3_Bob_HV\\20260928T023707_539064Z",
+      "photon_counts": [
+        5363,
+        9912
+      ]
+    },
+    {
+      "number": 8,
+      "alice": "S3",
+      "bob": "RL",
+      "status": "completed",
+      "target_eom_v": [
+        -157.56,
+        -32.4
+      ],
+      "daq_v": [
+        7.878,
+        1.6199999999999999
+      ],
+      "assumed_hv_gain": -20.0,
+      "host_start_utc": "2026-09-28T02:38:47.619620+00:00",
+      "directory": "08_Alice_S3_Bob_RL",
+      "raw_folder": "08_Alice_S3_Bob_RL\\20260928T023850_405883Z",
+      "photon_counts": [
+        5204,
+        9825
+      ]
     }
   ],
-  "ao_zeroed_on_exit": false,
+  "ao_zeroed_on_exit": true,
   "cleanup_errors": [],
-  "note": "Static blocks only. No absolute NI-to-T3 pulse origin claimed."
+  "note": "Static blocks only. No absolute NI-to-T3 pulse origin claimed.",
+  "host_end_utc": "2026-09-28T02:40:30.495496+00:00"
 }

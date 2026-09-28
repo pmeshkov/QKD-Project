@@ -1,7 +1,7 @@
 # EOM timing scope test
 
 Open `python pulsed_GUI/eom_timing_scope.py` in the existing niDaqENV environment,
-or choose **EOM timing scope** in `python pulsed_GUI/launch.py`.
+or choose **EOM timing on scope** in `python pulsed_GUI/launch.py`.
 Opening the window and **Check settings** do not access hardware.
 
 ## Connect and run

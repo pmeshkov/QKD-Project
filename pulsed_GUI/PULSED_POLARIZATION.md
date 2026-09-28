@@ -1,6 +1,6 @@
 # Pulsed polarization baseline
 
-Run `launch.py` and choose **Pulsed polarization**, or open
+Run `launch.py` and choose **Polarization matrix**, or open
 `pulsed_polarization.py` with VS Code's Run Python File button. No terminal
 parameters are needed. Opening the window and **Check settings** do not access
 hardware. This tool holds each Alice/Bob voltage pair constant while recording:
@@ -14,8 +14,9 @@ eight settings, two detectors each, sixteen arrival histograms.
 2. Choose **NI external**, **500000 Hz**, and your tested trigger high time
    (default 100 ns). This program owns Ctr0/PFI12 and keeps the clock running
    across all eight settings. Do not run the separate clock GUI alongside it.
-   Alternatively choose **Laser internal** and enter **2000000**, **20000000**,
-   or **80000000 Hz**. Manually disconnect PFI12 from the BDL and select that
+   Alternatively choose **Laser internal 2 MHz**, **Laser internal 20 MHz**,
+   or **Laser internal 80 MHz** in the Run tab. The rate is filled automatically
+   and the external clock fields are disabled. Manually disconnect PFI12 from the BDL and select that
    internal laser setting, then set the form's confirmation to **Yes**. Software
    does not switch the laser mode. Measured SYNC must agree within 5%.
 3. Check the six voltages. Defaults copy your reported Alice array
@@ -31,16 +32,23 @@ eight settings, two detectors each, sixteen arrival histograms.
 5. Detector outcomes can remain **Unassigned**; columns then say HV/CH1,
    HV/CH2, RL/CH1 and RL/CH2. Once measured, specify CH1's outcome in each
    basis; CH2 takes the other outcome.
-6. Select each input's rising/falling edge to match the working UniHarp setup.
-   Threshold defaults: SYNC -250 mV, CH1/CH2 +200 mV. Channel offsets: SYNC 0 ns,
-   CH1 0 ns, CH2 **+4.5 ns**. All are editable. Edge mode is used.
+6. In PicoHarp, select each input's mode and rising/falling edge to match the working UniHarp setup.
+   New-profile defaults follow the current polarization profile: SYNC -60 mV falling,
+   CH1 +200 mV rising, CH2 +200 mV rising. Channel offsets: SYNC 0 ns,
+   CH1 0 ns, CH2 **+4.5 ns**. All are editable; existing saved values are retained.
+   Edge mode is the default; CFD controls become available when CFD is selected.
    The code programs the offsets through PH330Lib in picoseconds and logs
    the requested values; these are not measured readbacks. Confirm the two
    arrival curves align. Analysis applies no second offset.
-7. Start with **10 seconds per setting**, **1 second warm-up**, **100 ms static
+7. Start with **60 seconds per setting**, **1 second warm-up**, **100 ms static
    settling pause**, **Gate = No**. Select **Check settings**, click Run, then
-   select **Record** and click Run. Allow about 80 seconds plus setup/pauses.
+   select **Record** and click Run. Allow about eight minutes plus setup/pauses.
    Increase recording time for your low-count measurements.
+
+The **Run** tab contains **Seconds at EACH voltage pair (8 recordings total)**.
+Voltages and physical labels are in **Voltages**; gates and histogram display
+options are in **Analysis**; output directory and notes are in **Files**.
+Manual internal-laser confirmation resets when the form opens or the source changes.
 
 The 1200 ns switching delay is not needed here: each voltage pair is held
 throughout a recording, following the much longer static settling pause.

@@ -1,0 +1,8 @@
+# Python packages for active QKD controls and offline analysis.
+# Keep the existing niDaqENV environment when available.
+# NI-DAQmx, the PicoHarp DLL, and Python's tkinter require separate installation.
+numpy
+scipy
+matplotlib
+Pillow
+nidaqmx

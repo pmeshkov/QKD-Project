@@ -1,0 +1,1 @@
+host_utc,elapsed_s,epoch,sync_hz,ch1_hz,ch2_hz,sum_hz,commanded_hz,alice_v,bob_v,sync_matches,warnings,warnings_text

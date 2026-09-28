@@ -17,6 +17,7 @@ from laser_clock import clock_plan
 from laser_clock_eom import eom_plan, prepared_clock
 from ph330 import PH330, DEFAULT_DLL
 import ph330_acquire as ph
+from record_io import save_json as save
 
 TOOL = "Clock + EOM + live counts"
 ROOT = Path(__file__).resolve().parent
@@ -40,7 +41,7 @@ FORM = [
                                               ("ch1", "CH1", "200", "0"),
                                               ("ch2", "CH2", "200", "4.5"))
       for item in ((f"{prefix}-mode", f"{label} trigger mode", "edge", ["edge", "cfd"]),
-                   (f"{prefix}-edge", f"{label} edge (edge mode only)", "", ["rising", "falling"]),
+                   (f"{prefix}-edge", f"{label} edge (edge mode only)", "falling" if prefix == "sync" else "rising", ["rising", "falling"]),
                    (f"{prefix}-level-mv", f"{label} threshold (signed mV)", level, None),
                    (f"{prefix}-zero", f"{label} CFD zero crossing (mV; CFD only)", "-10", None),
                    (f"{prefix}-offset-ns", f"{label} channel offset (ns)", offset, None))],
@@ -89,12 +90,6 @@ def settings(values):
                 poll_s=number(values, "poll-ms", 100, 10000) / 1000,
                 average_s=number(values, "average-s", 0, 60), history_s=number(values, "history-s", 2, 600),
                 output=values["output"], note=values["note"])
-
-
-def save(path, data):
-    temporary = path.with_suffix(".tmp")
-    temporary.write_text(json.dumps(data, indent=2, allow_nan=False) + "\n", encoding="utf-8")
-    temporary.replace(path)
 
 
 def latest(samples, value):

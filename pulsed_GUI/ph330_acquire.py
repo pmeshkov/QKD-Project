@@ -93,9 +93,11 @@ def scalar(api, index, name, kind=INT):
     return value.value
 
 
-def configure(api, cfg, *, rate_meters_only=False):
+def configure(api, cfg, *, rate_meters_only=False, tttr_mode=3):
+    if tttr_mode not in (2, 3):
+        raise ValueError("TTTR mode must be 2 or 3.")
     index = cfg["device_index"]
-    api.call("Initialize", index, 3, 0)  # T3, internal timebase (not external REF).
+    api.call("Initialize", index, tttr_mode, 0)  # Internal timebase, not external REF.
     model, part, version = [ct.create_string_buffer(n) for n in (24, 8, 8)]
     api.call("GetHardwareInfo", index, model, part, version)
     count = scalar(api, index, "GetNumOfInputChannels")
@@ -124,8 +126,9 @@ def configure(api, cfg, *, rate_meters_only=False):
     selected = {d["channel"] for d in cfg["detectors"]}
     for channel in range(count):
         api.call("SetInputChannelEnable", index, channel, int(channel in selected))
-    api.call("SetBinning", index, cfg["binning"])
-    api.call("SetOffset", index, 0)
+    if tttr_mode == 3:
+        api.call("SetBinning", index, cfg["binning"])
+        api.call("SetOffset", index, 0)
     api.call("SetMeasControl", index, 0, 0, 0)
     api.call("SetMarkerEnable", index, 0, 0, 0, 0)
     api.call("SetOflCompression", index, 0)
@@ -134,11 +137,11 @@ def configure(api, cfg, *, rate_meters_only=False):
     if features & 0x100:
         api.call("EnableEventFilter", index, 0)
         api.call("SetFilterTestMode", index, 0)
-    resolution = scalar(api, index, "GetResolution", ct.c_double)
-    if not math.isfinite(resolution) or resolution <= 0:
+    resolution = scalar(api, index, "GetResolution", ct.c_double) if tttr_mode == 3 else None
+    if tttr_mode == 3 and (not math.isfinite(resolution) or resolution <= 0):
         raise ValueError("Invalid PicoHarp timing resolution.")
     # Rate meters operate without StartMeas; their readings do not use T3 microtime bins.
-    if not rate_meters_only and resolution * 32768 < 1e12 / cfg["laser_hz"]:
+    if tttr_mode == 3 and not rate_meters_only and resolution * 32768 < 1e12 / cfg["laser_hz"]:
         raise ValueError("T3 microtime range does not cover the laser period; increase binning.")
     return {"model": model.value.decode(), "part": part.value.decode(),
             "hardware_version": version.value.decode(), "input_count": count,
