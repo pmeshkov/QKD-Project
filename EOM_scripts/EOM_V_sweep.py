@@ -27,7 +27,7 @@ window_size = None
 
 # Determines the time of each voltage dwell; the larger, the longer, but the
 # more signal to noise.
-time_unit = 0.05 # in seconds
+time_unit = 0.1 # in seconds
 
 # Total sequence time: N * N = N**2 units
 timearray = np.ones(N**2) * time_unit
@@ -158,7 +158,14 @@ def daq_worker():
                 # Save exact timestamp and single averaged data point to master record
                 unix_timestamp = time.time()
                 recorded_data.append((unix_timestamp, elapsed, target_v0, target_v1, c0_end, c1_end, hz0, hz1))
-                    
+
+            # --- ADD THIS SECTION ---
+            # Zero the EOM voltages before closing the task
+            ao_task.write([0.0, 0.0])
+            shared_state['current_v0'] = 0.0
+            shared_state['current_v1'] = 0.0
+            # ------------------------
+                
     except Exception as e:
         print(f"DAQ Error: {e}")
     finally:

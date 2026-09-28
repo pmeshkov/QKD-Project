@@ -15,6 +15,7 @@ You can also run any of these Python files directly with VS Code's Run button; e
 | `ph330.py` | Check the DLL or find connected PicoHarp devices. |
 | `laser_clock.py` | Check timing settings or output the clock on Ctr0/PFI12. |
 | `laser_clock_eom.py` | Adjust static AO0/AO1 EOM voltages while generating the PFI12 clock; adjust clock settings in the same window. |
+| `laser_clock_eom_counts.py` | Live PicoHarp CH1/CH2/SYNC rates, editable Alice/Bob biases and external laser rate in a separate live window. |
 | `eom_timing_scope.py` | Repeating buffered AO0/AO1 voltage steps and a delayed PFI12 clock for scope measurements. |
 | `pulsed_polarization.py` | Eight static Alice/Bob settings; saves ungated two-channel T3, sixteen arrival curves and polarization matrices. |
 | `ph330_acquire.py` | Check settings, check count rates, or record CH1/CH2 TTTR data for the 2 MHz HBT test. |
@@ -22,6 +23,12 @@ You can also run any of these Python files directly with VS Code's Run button; e
 | `ph330_lifetime.py` | Record CH1 fluorescence delays, or analyze a saved run and optionally fit its decay tail. |
 
 `gui_app.py` supplies the shared windows. The `test_*.py` files remain developer offline tests, not acquisition applications. The two copied JSON profiles are reference configurations; acquisition settings are entered using the form and saved in each run's metadata. The separate `laser_clock_gemini.py` was not copied.
+
+## Clock + EOM + live counts
+
+Select **Clock + EOM + live counts**, check the initial output and PicoHarp settings, then choose **Start live controls → Run**. A second window shows live CH1/CH2 count traces, numeric sum and SYNC readings, and editable EOM voltages, laser rate and pulse width. It includes log/linear scale and an optional combined trace. You do not need a separate laser clock process. The first launch copies matching input settings from your saved G2 form; afterward this tool remembers its own settings.
+
+Voltage changes keep the clock running. Clock changes briefly restart it. Stop or closing either window stops the clock and returns AO0/AO1 to zero. Rate samples and adjustment logs save under `data/alignment/`. [Full instructions](LIVE_ALIGNMENT.md). `live_counts_window.py` is the supporting display module.
 
 ## Pulsed polarization
 

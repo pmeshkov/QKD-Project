@@ -93,7 +93,7 @@ def scalar(api, index, name, kind=INT):
     return value.value
 
 
-def configure(api, cfg):
+def configure(api, cfg, *, rate_meters_only=False):
     index = cfg["device_index"]
     api.call("Initialize", index, 3, 0)  # T3, internal timebase (not external REF).
     model, part, version = [ct.create_string_buffer(n) for n in (24, 8, 8)]
@@ -135,7 +135,10 @@ def configure(api, cfg):
         api.call("EnableEventFilter", index, 0)
         api.call("SetFilterTestMode", index, 0)
     resolution = scalar(api, index, "GetResolution", ct.c_double)
-    if not math.isfinite(resolution) or resolution <= 0 or resolution * 32768 < 1e12 / cfg["laser_hz"]:
+    if not math.isfinite(resolution) or resolution <= 0:
+        raise ValueError("Invalid PicoHarp timing resolution.")
+    # Rate meters operate without StartMeas; their readings do not use T3 microtime bins.
+    if not rate_meters_only and resolution * 32768 < 1e12 / cfg["laser_hz"]:
         raise ValueError("T3 microtime range does not cover the laser period; increase binning.")
     return {"model": model.value.decode(), "part": part.value.decode(),
             "hardware_version": version.value.decode(), "input_count": count,

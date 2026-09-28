@@ -27,6 +27,7 @@ HELP_TEXT = (
 )
 FORM = [
     ("action", "Action", "Check settings", ["Check settings", "Record", "Analyze saved run"]),
+    ("seconds", "Recording duration PER setting (s; eight settings)", "10", None),
     ("device", "NI device (USB-6351)", "Dev1", None),
     ("source", "Laser clock source", "NI external", ["NI external", "Laser internal"]),
     ("laser-hz", "Laser repetition rate (Hz)", "500000", None),
@@ -42,7 +43,6 @@ FORM = [
     ("bob-rl-v", "Bob R/L basis target (V; notebook entry 1 candidate)", "-47.44", None),
     ("hv-ch1", "H/V basis: CH1 outcome (CH2 is the other outcome)", "Unassigned", ["Unassigned", "H", "V"]),
     ("rl-ch1", "R/L basis: CH1 outcome (CH2 is the other outcome)", "Unassigned", ["Unassigned", "R", "L"]),
-    ("seconds", "Recording duration PER setting (s; eight settings)", "10", None),
     ("dll", "PicoHarp DLL", str(DEFAULT_DLL), "file"),
     ("device-index", "PicoHarp device index", "0", None),
     ("serial", "PicoHarp serial", "1050578", None),

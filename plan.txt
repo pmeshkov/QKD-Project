@@ -1,5 +1,5 @@
 QKD PLAN - current decisions and next step
-Updated: 2026-09-20
+Updated: 2026-09-27
 Working plan: review one step at a time; later stages are not finalized.
 Historical detailed draft: docs/planning/initial_plan_2026-09-20.txt
 That archive is background only; decisions below supersede it.
@@ -55,6 +55,15 @@ Retain scope captures, voltage pairs and settling criteria for reproducibility.
 Implemented: pulsed_GUI/eom_timing_scope.py; launcher option EOM timing scope.
 Guide: pulsed_GUI/EOM_TIMING_SCOPE.md. Outputs: data/timing/<run>/.
 The electrical-to-optical timing relation remains part of arrival/optical validation.
+
+ALIGNMENT SUPPORT (2026-09-27)
+- Added pulsed_GUI/laser_clock_eom_counts.py, GUI option Clock + EOM + live counts.
+  Separate live window reads PicoHarp CH1/CH2/SYNC and adjusts Alice/Bob biases
+  and NI laser rate. No NI detector counters or TTTR acquisition are used.
+  Clock changes restart the pulse train; voltage updates keep the clock running.
+  Stops zero both AOs. Logs: data/alignment/. Guide: pulsed_GUI/LIVE_ALIGNMENT.md.
+  Validation: all 82 offline GUI/backend tests passed. Live alignment hardware
+  operation still needs the user's bench test; no hardware outputs were started.
 
 CURRENT STEP: STATIC PULSED POLARIZATION (code ready for bench testing)
 - pulsed_GUI/pulsed_polarization.py, launcher option Pulsed polarization:

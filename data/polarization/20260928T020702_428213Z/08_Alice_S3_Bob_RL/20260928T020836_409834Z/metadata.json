@@ -1,0 +1,91 @@
+{
+  "schema": "qkd-ph330-raw-t3-v1",
+  "status": "completed",
+  "config": {
+    "device_index": 0,
+    "serial": "1050578",
+    "laser_hz": 500000.0,
+    "sync_divider": 1,
+    "binning": 6,
+    "sync": {
+      "mode": "edge",
+      "edge": "rising",
+      "level_mv": -60,
+      "offset_ps": 0
+    },
+    "detectors": [
+      {
+        "mode": "edge",
+        "edge": "falling",
+        "level_mv": 200,
+        "offset_ps": 0,
+        "channel": 0,
+        "label": "CH1 PBS transmitted"
+      },
+      {
+        "mode": "edge",
+        "edge": "falling",
+        "level_mv": 200,
+        "offset_ps": 4500,
+        "channel": 1,
+        "label": "CH2 PBS reflected"
+      }
+    ]
+  },
+  "hardware": {
+    "model": "PicoHarp 330",
+    "part": "930050",
+    "hardware_version": "1.0",
+    "input_count": 2,
+    "features": 935,
+    "base_resolution_ps": 1.0,
+    "resolution_ps": 64.0,
+    "channel_offsets_ps": {
+      "sync": 0,
+      "inputs": {
+        "0": 0,
+        "1": 4500
+      }
+    },
+    "channel_offsets_note": "Configured SDK values, not measured readbacks; already applied to TTTR.",
+    "histogram_offset_ns": 0,
+    "markers_enabled": false,
+    "event_filter_enabled": false,
+    "extended_deadtime_enabled": false
+  },
+  "rates_before": {
+    "host_utc": "2026-09-28T02:08:36.408736+00:00",
+    "sync_hz": 499990,
+    "input_hz": [
+      90,
+      90
+    ],
+    "warnings": 0,
+    "warnings_text": ""
+  },
+  "dll": "C:\\Program Files\\PicoQuant\\UniHarp\\PH330Lib.dll",
+  "library_version": "2.0",
+  "requested_duration_ms": 10000,
+  "records": 6385,
+  "flags_seen": 0,
+  "complete": true,
+  "record_format": "GenericT3",
+  "record_type": "0x00010307",
+  "dtype": "little-endian uint32",
+  "raw_file": "events.t3raw",
+  "note": "Not PTU. Raw records plus this JSON are required together.",
+  "host_start_utc": "2026-09-28T02:08:36.431352+00:00",
+  "measured_sync_period_s": 2.000015e-06,
+  "elapsed_ms": 10000.0,
+  "rates_after": {
+    "host_utc": "2026-09-28T02:08:46.461384+00:00",
+    "sync_hz": 499990,
+    "input_hz": [
+      90,
+      90
+    ],
+    "warnings": 0,
+    "warnings_text": ""
+  },
+  "host_end_utc": "2026-09-28T02:08:46.461429+00:00"
+}

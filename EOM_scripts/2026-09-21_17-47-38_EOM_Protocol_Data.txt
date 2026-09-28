@@ -1,0 +1,16 @@
+EOM Voltage Sweep & Protocol Summary | 2026-09-21_17-47-38
+============================================================
+
+### Curve Fit Parameters ###
+Index format: [A, k1, k2, phi, C]
+  A   = Amplitude
+  k1  = Modulation scaling 1
+  k2  = Modulation scaling 2
+  phi = Phase offset
+  C   = Static vertical offset
+
+Trace 0 (popt0): [4801.22722    0.00772    0.00827    0.78493  715.64826]
+Trace 1 (popt1): [4086.82757    0.00758    0.00818   -0.82093  599.91125]
+
+### Selected EOM Voltages ###
+Protocol values mapped to target polarization states:

@@ -12,11 +12,13 @@ import tkinter as tk
 from tkinter import filedialog, ttk
 from tkinter.scrolledtext import ScrolledText
 from pulsed_polarization import FORM as POLARIZATION_FORM, HELP_TEXT as POLARIZATION_HELP
+from laser_clock_eom_counts import TOOL as LIVE_COUNTS_TOOL, FORM as LIVE_COUNTS_FORM, HELP as LIVE_COUNTS_HELP
 
 ROOT = Path(__file__).resolve().parent
 SETTINGS = ROOT / "gui_settings.json"
 DLL = r"C:\Program Files\PicoQuant\UniHarp\PH330Lib.dll"
 TOOLS = {
+    LIVE_COUNTS_TOOL: "laser_clock_eom_counts",
     "Connection test": "ph330",
     "Laser clock": "laser_clock",
     "Laser clock + EOM": "laser_clock_eom",
@@ -39,6 +41,7 @@ COMMON = [
     ("ch1-level-mv", "CH1 threshold (mV)", "300", None),
 ]
 SPECS = {
+    LIVE_COUNTS_TOOL: LIVE_COUNTS_FORM,
     "Pulsed polarization": POLARIZATION_FORM,
     "EOM timing scope": [
         ("action", "Action", "Check settings", ["Check settings", "Output timing pattern"]),
@@ -113,6 +116,7 @@ SPECS = {
     ],
 }
 HELP = {
+    LIVE_COUNTS_TOOL: LIVE_COUNTS_HELP,
     "Pulsed polarization": POLARIZATION_HELP,
     "EOM timing scope": "USB-6351 buffered AO0/AO1 + delayed Ctr0/PFI12. Enter calibrated A/B targets; all defaults are 0 V. Uses -20 amplifier gain. Monitor is HV/20 into high impedance. TTL OUT and TRG OUT were reported aligned within ~1 ns on this bench. Stop, edit, Run to adjust. Stop returns AO to 0 V. Close other AO/clock tools.",
     "Laser clock + EOM": "Manual alignment: Ctr0/PFI12 clock plus static AO0/AO1 biases. EOM targets ±200 V using the existing −20 gain convention. Apply EOM keeps the clock running; Apply clock briefly stops/restarts it. Stop returns both AO channels to 0 V.",
@@ -156,6 +160,10 @@ def arguments(tool, values):
     """Convert form values to the copied backends' existing, tested arguments."""
     action = values.get("action")
     args = []
+    if tool == LIVE_COUNTS_TOOL:
+        from laser_clock_eom_counts import settings
+        settings(values)
+        return []
     if tool == "Pulsed polarization":
         return []  # This GUI-native tool receives the form directly, without a CLI translation.
     if tool == "Connection test":
@@ -200,7 +208,11 @@ def arguments(tool, values):
     return args
 
 
-def execute(tool, values, stop_event, commands=None):
+def execute(tool, values, stop_event, commands=None, samples=None, emit=None):
+    if tool == LIVE_COUNTS_TOOL:
+        if stop_event.is_set():
+            return 130
+        return importlib.import_module(TOOLS[tool]).main(values, stop_event, commands, samples, emit)
     if tool == "Pulsed polarization":
         if stop_event.is_set():
             return 130
@@ -245,6 +257,8 @@ class App:
         self.events = queue.Queue()
         self.stop_event = threading.Event()
         self.commands = queue.Queue(maxsize=1)
+        self.live_samples = queue.Queue(maxsize=1)
+        self.live_counts = None
         self.running = self.closing = False
         self.last_folder = self.last_plot = None
         self.settings = {}
@@ -344,6 +358,13 @@ class App:
         saved = self.settings.get(self.current_tool, {})
         if not isinstance(saved, dict):
             saved = {}
+        if self.current_tool == LIVE_COUNTS_TOOL and not saved:
+            # Seed input settings from the user's existing two-channel tool once.
+            # Never copy its action, obsolete expected laser rate or output voltages.
+            previous = self.settings.get("G2 acquisition", {})
+            if isinstance(previous, dict):
+                saved = {key: value for key, value in previous.items()
+                         if key in ("dll", "serial", "device-index") or key.startswith(("sync-", "ch1-", "ch2-"))}
         for row, (key, label, initial, kind) in enumerate(SPECS[self.current_tool]):
             value = str(saved.get(key, initial))
             if isinstance(kind, list) and value not in kind:
@@ -395,6 +416,18 @@ class App:
         self.running = True
         self.stop_event.clear()
         self.commands = queue.Queue(maxsize=1)
+        self.live_samples = queue.Queue(maxsize=1)
+        if tool == LIVE_COUNTS_TOOL and values.get("action") == "Start live controls":
+            try:
+                from laser_clock_eom_counts import settings
+                from live_counts_window import LiveCountsWindow
+                if self.live_counts is not None and self.live_counts.exists():
+                    self.live_counts.window.destroy()
+                self.live_counts = LiveCountsWindow(self.root, settings(values), self.commands, self.stop)
+            except Exception as exc:
+                self.running = False
+                self.write(f"Could not open live window; hardware not started: {exc}\n")
+                return
         self.last_folder = self.last_plot = None
         self.run_button.configure(state="disabled")
         self.selector.configure(state="disabled")
@@ -407,7 +440,7 @@ class App:
             self.apply_clock_button.configure(state="normal")
         self.folder_button.configure(state="disabled")
         self.plot_button.configure(state="disabled")
-        can_stop = values.get("action") in ("Record", "Output clock", "Output clock + EOM", "Output timing pattern")
+        can_stop = values.get("action") in ("Record", "Output clock", "Output clock + EOM", "Output timing pattern", "Start live controls")
         self.stop_button.configure(state="normal" if can_stop else "disabled")
         self.status.set("Running…")
         self.write(f"\n--- {tool}: {values.get('action', 'Analyze')} ---\n")
@@ -416,7 +449,10 @@ class App:
             writer = QueueWriter(self.events)
             with redirect_stdout(writer), redirect_stderr(writer):
                 try:
-                    result = execute(tool, values, self.stop_event, commands=self.commands)
+                    kwargs = {"commands": self.commands}
+                    if tool == LIVE_COUNTS_TOOL:
+                        kwargs.update(samples=self.live_samples, emit=lambda data: self.events.put(("alignment", data)))
+                    result = execute(tool, values, self.stop_event, **kwargs)
                 except KeyboardInterrupt:
                     result = 130
                     print("Stopped. Any partial acquisition is marked incomplete.")
@@ -446,6 +482,8 @@ class App:
 
     def stop(self):
         self.stop_event.set()
+        if self.live_counts is not None and self.live_counts.exists():
+            self.live_counts.stopping_now()
         self.apply_eom_button.configure(state="disabled")
         self.apply_clock_button.configure(state="disabled")
         self.stop_button.configure(state="disabled")
@@ -468,8 +506,20 @@ class App:
                                     self.last_folder = path.parent
                                     if path.suffix.lower() == ".png":
                                         self.last_plot = path
+                elif kind == "alignment":
+                    if self.live_counts is not None and self.live_counts.exists():
+                        self.live_counts.handle(value)
+                    if value["kind"] == "applied" and self.current_tool == LIVE_COUNTS_TOOL:
+                        for key, applied in (("eom1-v", value["eom"]["target_eom_v"][0]),
+                                             ("eom2-v", value["eom"]["target_eom_v"][1]),
+                                             ("frequency-hz", value["clock"]["requested_frequency_hz"]),
+                                             ("high-ns", value["clock"]["requested_high_ns"])):
+                            self.vars[key].set(f"{applied:g}")
+                        self.remember()
                 else:
                     self.running = False
+                    if self.live_counts is not None and self.live_counts.exists():
+                        self.live_counts.finish(value)
                     self.apply_eom_button.configure(state="disabled")
                     self.apply_clock_button.configure(state="disabled")
                     self.status.set("Complete" if value == 0 else "Stopped" if value == 130 else "Error — see log")
@@ -484,6 +534,12 @@ class App:
                         self.open_plot()
         except queue.Empty:
             pass
+        if self.live_counts is not None and self.live_counts.exists():
+            try:
+                self.live_counts.sample(self.live_samples.get_nowait())
+            except queue.Empty:
+                pass
+            self.live_counts.tick()
         if self.closing and not self.running:
             self.destroy()
         else:
