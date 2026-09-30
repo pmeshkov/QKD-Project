@@ -1,0 +1,144 @@
+{
+  "schema": "qkd-measured-grid-calibration-v1",
+  "status": "candidate_pending_optical_confirmation",
+  "source": {
+    "csv": "C:\\Users\\nanometa\\Documents\\QKD_Code\\data\\eoms\\9_28_26\\BrandonsRun\\20260929_015533_558458_Detector_Traces.csv",
+    "csv_sha256": "066177a752de2b026e4808e3c880259528de1d69729f488cada0162736f5a071",
+    "exact_counts": true,
+    "source": "NI external",
+    "acquisition_settings": {
+      "source": "NI external",
+      "device": "Dev1",
+      "clock": {
+        "requested_frequency_hz": 750000.0,
+        "requested_high_ns": 100.0,
+        "nominal_timebase_hz": 100000000,
+        "high_ticks": 10,
+        "low_ticks": 123,
+        "realized_nominal_frequency_hz": 751879.6992481203,
+        "realized_high_ns": 100,
+        "realized_low_ns": 1230,
+        "realized_duty_cycle": 0.07518796992481203
+      },
+      "ph330": {
+        "device_index": 0,
+        "serial": "1050578",
+        "laser_hz": 751879.6992481203,
+        "sync_divider": 1,
+        "binning": 6,
+        "sync": {
+          "mode": "cfd",
+          "edge": "falling",
+          "level_mv": -60,
+          "offset_ps": 0,
+          "zero_cross_mv": -10
+        },
+        "detectors": [
+          {
+            "mode": "edge",
+            "edge": "rising",
+            "level_mv": 200,
+            "offset_ps": 0,
+            "channel": 0
+          },
+          {
+            "mode": "edge",
+            "edge": "rising",
+            "level_mv": 200,
+            "offset_ps": 4500,
+            "channel": 1
+          }
+        ]
+      },
+      "dll": "C:\\Program Files\\PicoQuant\\UniHarp\\PH330Lib.dll",
+      "mode": 3,
+      "duration_ms": 1000,
+      "settle_s": 0.02,
+      "output": "C:\\Users\\nanometa\\Documents\\QKD_Code\\data\\eoms",
+      "note": "",
+      "points": 45,
+      "voltage_min": -200.0,
+      "voltage_max": 200.0,
+      "minimum_scan_seconds": 2065.5
+    },
+    "count_method": "PicoHarp per-point sidecar",
+    "legacy_assumed_dwell_s": null,
+    "points_sha256": "baff71833e7d430deb146bb2cc28624ee33037b5822fc51160f035262aa049a2",
+    "manifest_sha256": "ec1c64e8a2ed55e7f6c8d3b60bd141278f3b7d790a01748c855db2a99ef992d1"
+  },
+  "parameters": {
+    "alice_seeds_v": [
+      -165,
+      -61,
+      43,
+      147
+    ],
+    "bob_seeds_v": [
+      30,
+      -68
+    ],
+    "alice_radius_v": 35.0,
+    "bob_radius_v": 35.0,
+    "balance_tolerance": 0.05,
+    "extinction_tolerance": 0.15,
+    "minimum_training_counts": 50,
+    "training_fraction": 0.7,
+    "random_seed": 20260929,
+    "simultaneous_confidence": 0.95
+  },
+  "selected": {
+    "score": 1.0423689545018706,
+    "alice_indices": [
+      3,
+      13,
+      26,
+      36
+    ],
+    "bob_indices": [
+      27,
+      16
+    ],
+    "alice_v": [
+      -172.72727272727272,
+      -81.81818181818181,
+      36.36363636363637,
+      127.27272727272732
+    ],
+    "bob_v": [
+      45.45454545454547,
+      -54.54545454545453
+    ],
+    "training_point_feasible": false
+  },
+  "target_ch1": [
+    [
+      0.0,
+      0.5
+    ],
+    [
+      0.5,
+      0.0
+    ],
+    [
+      1.0,
+      0.5
+    ],
+    [
+      0.5,
+      1.0
+    ]
+  ],
+  "roles": [
+    "S0",
+    "S1",
+    "S2",
+    "S3"
+  ],
+  "heldout_count_check_passed": false,
+  "independent_count_check_passed": false,
+  "independent_source": null,
+  "physical_state_labels_confirmed": false,
+  "objective": "Training-only Jeffreys expected squared fraction error / tolerance squared; feasible sets preferred",
+  "calibration_target": "Detected fractions; no background/efficiency correction",
+  "helper_sha256": "cf62302b66af9511db9125d32f208fcd196dd945018f9459e49b73f575df11fc"
+}

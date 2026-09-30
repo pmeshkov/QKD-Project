@@ -1,0 +1,31 @@
+{
+  "schema": "qkd-eom-calibration-transfer-v1",
+  "units": "EOM target V",
+  "alice_v": [
+    -145.45454545454544,
+    -45.45454545454544,
+    45.45454545454547,
+    172.72727272727275
+  ],
+  "bob_v": [
+    27.27272727272728,
+    -63.636363636363626
+  ],
+  "alice_labels": [
+    "H",
+    "R",
+    "V",
+    "L"
+  ],
+  "bob_order": [
+    "HV candidate (notebook setting 1)",
+    "RL candidate (notebook setting 2)"
+  ],
+  "physical_labels_confirmed": false,
+  "source": "C:\\Users\\nanometa\\Documents\\QKD_Code\\data\\eoms\\20260929_172737_820332_Detector_Traces.csv",
+  "heldout_count_check_passed": false,
+  "independent_count_check_passed": false,
+  "status": "Candidate; physical labels and optical performance require bench confirmation",
+  "analysis_report": "C:\\Users\\nanometa\\Documents\\QKD_Code\\data\\eoms\\calibrations\\20260929T175215_987351Z\\analysis.json",
+  "csv_sha256": "6d71f30e5b82984cfc8ec3ad47333c0ef2682fa02d2f8b02cfaf1725010ae267"
+}

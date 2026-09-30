@@ -77,10 +77,71 @@ Sessions save under `data/polarization/<UTC timestamp>/`:
   distinguishing missing measurements from measured zero counts.
 
 The log reports both photon totals after each setting. Plots are made after
-acquisition, not live. **Open plot** shows the matrix; **Open data folder**
-opens the session folder. Find the arrival plot inside `analysis`.
-For sparse curves, increase display rebinning or reduce **Plot end after SYNC**.
-These display settings do not change native histograms or raw events.
+acquisition, not live. **Open plots** shows both figures; **Open data folder**
+opens the session folder. Both plots also live inside `analysis`.
+Set **Arrival plots: X-axis start** and **X-axis end** to zoom all sixteen panels,
+for example 45 to 65 ns. Start defaults to 0; an end of 0 uses the full laser
+period. End must exceed start. **Arrival plots: Y-axis maximum**
+sets the same counts-per-display-bin limit on all sixteen panels; zero automatically
+fits the tallest peak within the displayed interval across all panels. The
+Y-axis starts at zero. Zoom changes the visible range, not the timing resolution
+or bin width. Display rebinning defaults to **1 native bin** (64 ps for acquisitions
+at binning 6), replacing the previous 16-bin / 1.024 ns display. No smoothing or
+interpolation is applied. Increase this number if sparse counts look too noisy.
+Existing GUI profiles switch to 1 once; subsequent user choices are remembered.
+These display settings are saved per analysis and do not change native histograms,
+raw events, gates or matrix calculations. Use **Analyze saved run** to regenerate
+plots from an existing session; earlier analyses are preserved.
+
+Arrival rows list the saved Alice EOM target voltages, and column headers list Bob
+voltages and detector labels. Matrix axes also show the voltages. These
+are the commanded EOM targets (Alice AO0, Bob AO1), not measured HV or DAQ output
+voltages. Reanalysis uses the recording's saved values, not current GUI entries.
+
+## Publication figures
+
+The arrival figure uses a compact 4 × 4 grid with filled traces and one color per
+output column (blue, orange, green, rose), following the reference figure's layout.
+Colors identify the output state/channel, not measured brightness or whether a
+basis matches. The default **Figure order** puts expected unity outcomes on the
+diagonal. Same-basis orthogonal outcomes lie next to them; the off-basis blocks
+have ideal probability 1/2. Same basis alone does not imply probability one.
+
+For S0–S3, the user-confirmed calibration is:
+
+| Input row | Expected unity output |
+| --- | --- |
+| S0 | Bob setting 1 (HV), CH2 |
+| S2 | Bob setting 1 (HV), CH1 |
+| S1 | Bob setting 2 (RL), CH2 |
+| S3 | Bob setting 2 (RL), CH1 |
+
+This permutation is fixed by that confirmation; it is never chosen from the
+brightest measured cells. Verify the convention if a future calibration changes
+the state order. Choose **Recorded order** to preserve the original panel order.
+For assigned H/V/R/L states, saved detector mappings establish the diagonal.
+If both mappings are Unassigned, a saved v1 calibration import can instead recover
+the index roles, provided all six recorded voltages match the import uniquely.
+Renaming S0/S1/S2/S3 therefore preserves the expected layout; the figure marks
+the physical names provisional and includes the detector channels. If neither
+mapping nor matching calibration provenance is available, recorded order is
+retained. Never reorder by measured brightness to manufacture a diagonal.
+
+Both arrival and matrix figures are saved as **PNG, vector PDF, and SVG**.
+Set **Saved figure resolution (DPI)** in Analysis (300 by default; 600 for larger
+images). Both PNG figures open automatically after a successful analysis.
+**Index-state figure labels** defaults to provisional H/R/V/L for S0/S1/S2/S3;
+the figure retains the indices and marks these names provisional. Choose **Saved
+state labels** to show only the recorded labels. This does not relabel raw data,
+change the expected detector permutation, or verify polarization handedness.
+The bare PBS transmits H to CH1 and reflects V to CH2, but Bob's EOM may transform
+the incident polarization before detection. Its calibrated setting must be
+accounted for when assigning Alice's physical states.
+The matrix uses the same output colors, shades cells by measured value, and
+outlines expected unity cells. Histograms retain measured counts; no trace is
+rescaled to force its peak to one. Probabilities retain normalization within each
+Bob basis. The display permutation, expected probabilities and mapping provenance
+are saved in `analysis.json`. Raw data and existing CSV matrix order are unchanged.
 
 ## Change gates later
 

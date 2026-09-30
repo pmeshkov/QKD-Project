@@ -1,0 +1,136 @@
+{
+  "mode": "ordered_phase_diagnostic",
+  "origin": null,
+  "origin_note": "",
+  "sync_range": [
+    1127820,
+    null
+  ],
+  "mapping": [
+    "V",
+    "L"
+  ],
+  "gate": [
+    50.0,
+    60.0
+  ],
+  "resolution_ns": 0.064,
+  "total_photons": 18681,
+  "range_photons": 18472,
+  "accepted_photons": 121,
+  "schema": "qkd-bb84-analysis-v1",
+  "status": "completed",
+  "source_session": "C:\\Users\\nanometa\\Documents\\QKD_Code\\data\\bb84\\ordered\\20260929T233244_370630Z_ordered\\session.json",
+  "alignment_status": "unverified",
+  "eligible_for_key_processing": false,
+  "plot_dpi": 300,
+  "flags_seen": 4,
+  "flags_by_phase": {
+    "startup": 4,
+    "active": 0,
+    "tail": 0,
+    "stopped": 0
+  },
+  "note": "All phase offsets are hypotheses, never a fitted/verified origin. Pointwise Wilson intervals assume binomial detection counts; no simultaneous confidence or security claim.",
+  "selection_note": "Default diagnostic lower SYNC bound is warmup_count + 0.5 s worth of cycles; it is a conservative display cut, not a measured warm-up boundary. No default upper cut. Boundary photons may remain.",
+  "alice_voltages": {
+    "H": -159.18367346938777,
+    "V": 36.734693877551024,
+    "R": -69.38775510204081,
+    "L": 151.0204081632653
+  },
+  "bob_voltages": {
+    "HV": 44.89795918367346,
+    "RL": -53.061224489795904
+  },
+  "phase_hypotheses": [
+    {
+      "phase_hypothesis": 0,
+      "mean_absolute_error": 0.2939388736263736,
+      "matched_correct": 33,
+      "matched_total": 55,
+      "matched_fraction": 0.6,
+      "matched_interval": [
+        0.46812799210121386,
+        0.7188150276753689
+      ]
+    },
+    {
+      "phase_hypothesis": 1,
+      "mean_absolute_error": 0.40382898351648355,
+      "matched_correct": 24,
+      "matched_total": 62,
+      "matched_fraction": 0.3870967741935484,
+      "matched_interval": [
+        0.27584645167113864,
+        0.5115215646098165
+      ]
+    },
+    {
+      "phase_hypothesis": 2,
+      "mean_absolute_error": 0.3475103021978022,
+      "matched_correct": 27,
+      "matched_total": 55,
+      "matched_fraction": 0.4909090909090909,
+      "matched_interval": [
+        0.36376777849003283,
+        0.619237401530278
+      ]
+    },
+    {
+      "phase_hypothesis": 3,
+      "mean_absolute_error": 0.35025755494505495,
+      "matched_correct": 30,
+      "matched_total": 63,
+      "matched_fraction": 0.47619047619047616,
+      "matched_interval": [
+        0.3578212405382701,
+        0.5972964356326276
+      ]
+    },
+    {
+      "phase_hypothesis": 4,
+      "mean_absolute_error": 0.34617101648351645,
+      "matched_correct": 40,
+      "matched_total": 66,
+      "matched_fraction": 0.6060606060606061,
+      "matched_interval": [
+        0.4854840080039292,
+        0.7149699950538045
+      ]
+    },
+    {
+      "phase_hypothesis": 5,
+      "mean_absolute_error": 0.4367960164835165,
+      "matched_correct": 24,
+      "matched_total": 59,
+      "matched_fraction": 0.4067796610169492,
+      "matched_interval": [
+        0.29089033587192775,
+        0.5340659874466261
+      ]
+    },
+    {
+      "phase_hypothesis": 6,
+      "mean_absolute_error": 0.2925995879120879,
+      "matched_correct": 46,
+      "matched_total": 66,
+      "matched_fraction": 0.696969696969697,
+      "matched_interval": [
+        0.5778119305445574,
+        0.7944597894198052
+      ]
+    },
+    {
+      "phase_hypothesis": 7,
+      "mean_absolute_error": 0.49036744505494506,
+      "matched_correct": 18,
+      "matched_total": 58,
+      "matched_fraction": 0.3103448275862069,
+      "matched_interval": [
+        0.2062209562281909,
+        0.4380306442428171
+      ]
+    }
+  ]
+}

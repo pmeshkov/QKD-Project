@@ -1,7 +1,6 @@
 """Offline live-alignment tests; no physical hardware is accessed."""
 import contextlib
 import ctypes as ct
-import csv
 import io
 import json
 from pathlib import Path
@@ -75,20 +74,63 @@ class AlignmentTests(unittest.TestCase):
         live.ph.configure(api, cfg, rate_meters_only=True)
         self.assertNotIn("StartMeas", api.calls)
 
-    def run_fake(self, temp, daq=None, api=None, stop=None, commands=None, emit=None, serial="test"):
+    def run_fake(self, temp, daq=None, api=None, stop=None, commands=None, emit=None, serial="test", source=live.NI):
         stop = stop if stop is not None else threading.Event()
         daq = daq if daq is not None else FakeDAQ()
         api = api if api is not None else CountAPI(stop)
         commands = commands if commands is not None else queue.Queue(maxsize=1)
         samples = queue.Queue(maxsize=1)
         events = []
-        cfg = live.settings(dict(values(), output=temp, serial=serial))
+        cfg = live.settings(dict(values(), output=temp, serial=serial, source=source))
         constants, system = dependencies()
         with contextlib.redirect_stdout(io.StringIO()):
             code = live.run_session(cfg, stop, commands, samples, emit or events.append,
                                     daq=daq, constants=constants, system=system, api=api)
-        path = next(Path(temp).glob("*/session.json"))
-        return code, json.loads(path.read_text()), daq, api, samples, events, path.parent
+        self.assertEqual(list(Path(temp).iterdir()), [])
+        summary = next(e["summary"] for e in events if e["kind"] == "cleanup")
+        return code, summary, daq, api, samples, events, Path(temp)
+
+    def test_manual_sources_never_reserve_counter_and_allow_live_eom(self):
+        for source in (live.CW, *live.INTERNAL_SOURCES):
+            with self.subTest(source=source), tempfile.TemporaryDirectory() as tmp:
+                stop, commands = threading.Event(), queue.Queue(maxsize=1)
+                def on_read(n):
+                    if n == 1:
+                        commands.put(("eom", live.eom_plan(40, -60)))
+                    elif n == 2:
+                        commands.put(("clock", live.live_clock(750000, 100)))
+                    else:
+                        stop.set()
+                api = CountAPI(stop, on_read, zero=source == live.CW)
+                code, meta, daq, api, samples, events, folder = self.run_fake(
+                    tmp, api=api, stop=stop, commands=commands, source=source)
+                self.assertEqual(code, 130)
+                self.assertFalse(any(e[0] == "clock_route" or "clock" in e for e in daq.events))
+                self.assertIn(("write", [-2, 3]), daq.events)
+                self.assertTrue(meta["ao_zeroed_on_exit"])
+                self.assertIsNone(meta["last_clock"])
+                self.assertTrue(any(e["kind"] == "rejected" for e in events))
+                self.assertNotIn("StartMeas", api.calls)
+                self.assertEqual(next(args[1] for name, args in api.arguments if name == "Initialize"),
+                                 2 if source == live.CW else 3)
+                reading = samples.get()
+                self.assertIsNone(reading["commanded_hz"])
+                self.assertEqual(reading["expected_sync_hz"], live.INTERNAL_SOURCES.get(source))
+                if source == live.CW:
+                    self.assertIsNone(reading["sync_matches"])
+
+    def test_manual_confirmation_and_unused_clock_fields(self):
+        for source in (live.CW, *live.INTERNAL_SOURCES):
+            v = dict(values(), source=source, **{"frequency-hz": "unused", "high-ns": "unused"})
+            self.assertIsNone(live.settings(v)["clock"])
+            with patch.object(live, "run_session", return_value=130) as run, contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(live.main(v), 0)
+                v["action"] = "Start live controls"
+                self.assertEqual(live.main(v), 1)
+                run.assert_not_called()
+                v["manual-ready"] = "Yes"
+                self.assertEqual(live.main(v), 130)
+                run.assert_called_once()
 
     def test_reads_and_cleanup_without_any_tttr_or_ni_detector_task(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -102,9 +144,9 @@ class AlignmentTests(unittest.TestCase):
             self.assertNotIn("ReadFiFo", api.calls)
             self.assertEqual([e[1] for e in daq.events if e[0] == "clock_route"], ["Dev1/ctr0"])
             self.assertEqual(daq.events[-4:], [("stop", "clock"), ("close", "clock"), ("write", [0, 0]), ("close", "ao")])
-            self.assertTrue((folder / "rates.csv").is_file())
+            self.assertFalse((folder / "rates.csv").exists())
 
-    def test_live_eom_keeps_clock_running_rate_change_restarts_and_logs(self):
+    def test_live_eom_keeps_clock_running_rate_change_restarts_without_files(self):
         stop, commands, daq = threading.Event(), queue.Queue(maxsize=1), FakeDAQ()
         def on_read(n):
             if n == 1:
@@ -121,12 +163,11 @@ class AlignmentTests(unittest.TestCase):
             self.assertIn(("write", [-2, 3]), writes)
             self.assertEqual([e for e in daq.events if e[0] == "start"], [("start", "clock")] * 2)
             self.assertLess(daq.events.index(("write", [-2, 3])), daq.events.index(("stop", "clock")))
-            with (folder / "rates.csv").open(newline="") as stream:
-                rows = list(csv.DictReader(stream))
-            self.assertEqual([row["epoch"] for row in rows], ["0", "1", "2"])
-            self.assertEqual(float(rows[1]["alice_v"]), 40)
-            self.assertAlmostEqual(float(rows[2]["commanded_hz"]), 100e6 / 133)
             self.assertEqual(samples.qsize(), 1)
+            last = samples.get()
+            self.assertEqual(last["epoch"], 2)
+            self.assertEqual(last["alice_v"], 40)
+            self.assertAlmostEqual(last["commanded_hz"], 100e6 / 133)
             self.assertEqual(meta["samples"], 3)
 
     def test_invalid_adjustment_preserves_outputs_and_zero_rates_keep_running(self):
@@ -210,6 +251,43 @@ def pump(root, predicate, seconds=5):
 
 
 class AlignmentGuiTests(unittest.TestCase):
+    def test_manual_live_window_disables_clock_and_launcher_handles_acknowledgement(self):
+        def worker(cfg, stop, commands, samples, emit):
+            emit(dict(kind="applied", epoch=0, clock=None, eom=cfg["eom"]))
+            live.latest(samples, dict(epoch=0, elapsed_s=1, ch1_hz=100, ch2_hz=200,
+                                      sync_hz=0, sync_matches=None, warnings=0, warnings_text=""))
+            stop.wait(5)
+            return 130
+        with tempfile.TemporaryDirectory() as tmp, patch.object(gui, "SETTINGS", Path(tmp) / "settings.json"), \
+                patch.object(live, "run_session", side_effect=worker):
+            root = tk.Tk()
+            root.withdraw()
+            app = gui.App(root, live.TOOL)
+            try:
+                app.vars["source"].set(live.CW)
+                self.assertEqual(str(app.fields["frequency-hz"][0].cget("state")), "disabled")
+                app.vars["manual-ready"].set("Yes")
+                app.vars["action"].set("Start live controls")
+                app.start()
+                window = app.live_counts
+                pump(root, lambda: window.epoch == 0)
+                self.assertEqual(str(window.clock_button.cget("state")), "disabled")
+                self.assertEqual(str(window.eom_button.cget("state")), "normal")
+                self.assertIn("CW", window.applied.get())
+                self.assertIn("not required", window.health.get())
+                window.submit("clock")
+                self.assertTrue(app.commands.empty())
+                app.stop()
+                pump(root, lambda: not app.running)
+                self.assertEqual(app.vars["frequency-hz"].get(), "500000")
+                app.vars["source"].set("Laser internal 20 MHz")
+                self.assertEqual(app.vars["manual-ready"].get(), "No")
+            finally:
+                if app.running:
+                    app.stop()
+                    pump(root, lambda: not app.running)
+                app.close()
+
     def test_closing_launcher_requests_worker_stop_before_destroy(self):
         ended = threading.Event()
         def worker(cfg, stop, commands, samples, emit):

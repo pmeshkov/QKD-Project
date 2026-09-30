@@ -1,0 +1,58 @@
+{
+  "mode": "ordered",
+  "device": "Dev1",
+  "frequency_hz": 750000,
+  "delay_ns": 900,
+  "high_ns": 100.0,
+  "trial_count": 7518797,
+  "warmup_count": 751880,
+  "alice_voltages": {
+    "H": -159.18367346938777,
+    "V": 36.734693877551024,
+    "R": -69.38775510204081,
+    "L": 151.0204081632653
+  },
+  "bob_voltages": {
+    "HV": 44.89795918367346,
+    "RL": -53.061224489795904
+  },
+  "ph330": {
+    "device_index": 0,
+    "serial": "1050578",
+    "binning": 6,
+    "laser_hz": 751879.6992481203,
+    "sync_divider": 1,
+    "sync": {
+      "mode": "edge",
+      "edge": "falling",
+      "level_mv": -60,
+      "offset_ps": 0
+    },
+    "detectors": [
+      {
+        "mode": "edge",
+        "edge": "rising",
+        "level_mv": 200,
+        "offset_ps": 0,
+        "channel": 0
+      },
+      {
+        "mode": "edge",
+        "edge": "rising",
+        "level_mv": 200,
+        "offset_ps": 4500,
+        "channel": 1
+      }
+    ]
+  },
+  "dll": "C:\\Program Files\\PicoQuant\\UniHarp\\PH330Lib.dll",
+  "output": "C:\\Users\\nanometa\\Documents\\QKD_Code\\data\\bb84\\ordered",
+  "note": "emitter 4",
+  "measurement": {
+    "sample_type": "Unspecified",
+    "bandpass_filter": "570BP",
+    "laser_power": "0.5 uW"
+  },
+  "calibration_transfer": null,
+  "labels_confirmed": false
+}

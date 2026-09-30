@@ -8,17 +8,26 @@ Close UniHarp before connecting the PicoHarp. Stop other programs that own AO0/A
 
 | Goal | Mode / tool | Output |
 | --- | --- | --- |
-| Align beams, adjust EOM biases and laser rate | Live alignment | CH1/CH2/SYNC rates, scrolling traces and adjustment logs |
+| Align beams, adjust EOM biases and laser rate | Live alignment | CH1/CH2/SYNC rates and bounded scrolling traces; no run data saved |
 | Calibrate EOM voltages without moving detector cables | EOM calibration sweep | Notebook-compatible N × N CSV; [instructions](pulsed_GUI/EOM_CALIBRATION_SWEEP.md) |
+| Extract voltages from the sweep and load measurement forms | EOM calibration analysis | Measured-grid candidates, uncertainty checks, diagnostic plots and six-voltage handoff; [instructions](pulsed_GUI/EOM_CALIBRATION_ANALYSIS.md) |
+| Measure two-detector correlations, pulsed or CW | Pulsed / CW g2 | Full raw TTTR, adjustable delay histogram and peak-area/CW normalization; [instructions](pulsed_GUI/G2.md) |
 | Check EOM settling and trigger phase on the scope | EOM timing on scope | Repeating buffered AO pattern and delayed PFI12 pulses |
 | Measure the static polarization baseline | Polarization matrix | Eight voltage settings, sixteen arrival histograms and count/probability matrices |
-| Test pulse-by-pulse state ordering | Repeating H-V-R-L | Known Alice sequence, Bob basis sequence and raw T3 recording; bench commissioning |
-| Acquire randomized protocol data | Random BB84 | Independent Alice/Bob choices, saved trial sequence and raw T3 recording; bench commissioning |
+| Test pulse-by-pulse state ordering | Ordered BB84 | Known Alice sequence, Bob basis sequence and raw T3 recording; bench commissioning |
+| Acquire randomized protocol data | Randomized BB84 | Independent Alice/Bob choices, saved trial sequence and raw T3 recording; bench commissioning |
 | Check connections, collect arrival data or inspect old runs | Diagnostics / existing PicoHarp tools | Device information, arrival-time plots and saved-run previews |
 
 The pulse-by-pulse modes require bench validation of the **NI trial index to PicoHarp T3 index relationship**. A first detection or a discarded warm-up interval does not by itself establish that origin. Treat recordings without a verified origin as commissioning data. Randomized acquisition does not by itself certify a secure key; reconciliation and privacy amplification belong to the downstream processing workflow.
 
 See [BB84 acquisition instructions](pulsed_GUI/BB84.md) for the new modes, saved sequence format, short first run and remaining synchronization check.
+
+The calibration path now stays within the app: **EOM calibration sweep → Analyze
+last completed sweep → Run → Load last completed result into a measurement**.
+The notebook remains available, using the same calculation core. Recent-run
+shortcuts and file-picker starting folders also connect polarization, lifetime,
+g² and raw-preview acquisition/analysis. These shortcuts fill forms; they never
+start hardware.
 
 ## Static polarization: longer runs and internal laser clock
 
@@ -34,10 +43,11 @@ The working switched profiles are **500 kHz / 1200 ns** and approximately **750 
 | --- | --- |
 | [`pulsed_GUI/`](pulsed_GUI/) | Active controls, shared hardware interfaces and analysis helpers; [detailed guides](pulsed_GUI/README.md) |
 | [`EOM_scripts/`](EOM_scripts/README.md) | Retained NI-detector alignment/sweep workflow and calibration notebook |
-| [`data/alignment/`](data/alignment/) | Live count-rate samples and adjustment logs |
+| [`data/alignment/`](data/alignment/) | Historical alignment logs only; new live sessions save no data |
 | [`data/timing/`](data/timing/) | Scope-test waveform/setting records |
 | [`data/polarization/`](data/polarization/) | Static polarization sessions, ungated T3 and derived histograms/matrices |
 | `data/bb84/` | Indexed sequence acquisition sessions and saved protocol choices |
+| `data/g2/` | Pulsed/CW two-detector timestamps, correlation curves and previews |
 | [`references/`](references/) | Hardware manuals and reference papers |
 | [`plan.txt`](plan.txt) | Current measured facts and commissioning steps |
 | [`archived/`](archived/) | Historical scripts; not the active experiment controls |

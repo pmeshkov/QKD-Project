@@ -3,6 +3,7 @@
 # NI-DAQmx, the PicoHarp DLL, and Python's tkinter require separate installation.
 numpy
 scipy
+pandas
 matplotlib
 Pillow
 nidaqmx

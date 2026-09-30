@@ -1,0 +1,6 @@
+Measurement notes:
+
+Excitation: pulsed, 0.44 uW
+Source: lens reflection
+Photon collection time: see metadata JSON file
+Wait after voltage change: see metadata JSON file

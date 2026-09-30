@@ -169,7 +169,14 @@ class API:
         elif name == "StopMeas":
             self.daq.events.append(("ph_stop", ""))
         elif name == "GetFlags":
-            ct.cast(args[1], ct.POINTER(ct.c_int))[0] = 2 if self.daq.fail == "flags" else 0
+            flags = 2 if self.daq.fail == "flags" else 0
+            if self.daq.fail == "sync_boundaries" and (self.reads == 0 or self.daq.counter_done):
+                flags = run.SYNC_LOST
+            if self.daq.fail == "sync_during" and self.reads == 1:
+                flags = run.SYNC_LOST
+            if self.daq.fail == "sync_missing":
+                flags = run.SYNC_LOST
+            ct.cast(args[1], ct.POINTER(ct.c_int))[0] = flags
         elif name == "CTCStatus":
             ct.cast(args[1], ct.POINTER(ct.c_int))[0] = 1 if self.daq.fail == "ph_stopped" else 0
         elif name == "ReadFiFo":
@@ -294,6 +301,48 @@ class RunTests(unittest.TestCase):
         self.assertTrue(record["labels_confirmed"])
         self.assertFalse(record["eligible_for_key_processing"])
         self.assertIsNone(record["sync_origin"])
+
+    def test_startup_and_end_sync_loss_retained_without_claiming_alignment(self):
+        code, record, raw, data, _, _ = self.session("sync_boundaries", {"warmup_count": 100000})
+        self.assertEqual(code, 0)
+        self.assertTrue(raw["startup_sync_loss_observed"])
+        self.assertTrue(raw["startup_sync_clear_observed"])
+        self.assertEqual(raw["flags_by_phase"]["startup"], run.SYNC_LOST)
+        self.assertEqual(raw["flags_by_phase"]["tail"], run.SYNC_LOST)
+        self.assertEqual(raw["flags_seen"], run.SYNC_LOST)
+        self.assertEqual(len(data), raw["records"] * 4)
+        self.assertFalse(record["eligible_for_key_processing"])
+        self.assertIsNone(record["sync_origin"])
+
+    def test_sync_loss_after_first_clear_flag_aborts(self):
+        code, record, raw, _, _, _ = self.session("sync_during")
+        self.assertEqual(code, 1)
+        self.assertIn("during active: SYNC_LOST", record["error"])
+        self.assertFalse(raw["complete"])
+
+    def test_sequence_cannot_complete_without_observing_sync_recovery(self):
+        code, record, raw, _, _, _ = self.session("sync_missing", {"warmup_count": 100000})
+        self.assertEqual(code, 1)
+        self.assertIn("before a clear PicoHarp SYNC flag", record["error"])
+        self.assertFalse(raw["complete"])
+        self.assertTrue(record["ao_zeroed_on_exit"])
+
+    def test_sync_startup_allowance_is_bounded_and_never_masks_other_errors(self):
+        def check(flags, phase="startup", elapsed=.01, allowance=.1):
+            raw = dict(flags_seen=0, records=17)
+            run._check_flags(raw, flags, phase, elapsed, allowance)
+            return raw
+        self.assertTrue(check(4)["startup_sync_loss_observed"])
+        self.assertEqual(check(0)["startup_sync_clear_raw_record_offset"], 17)
+        for elapsed, allowance in ((.1, .1), (.11, .1), (0, 0)):
+            with self.subTest(elapsed=elapsed, allowance=allowance), self.assertRaisesRegex(RuntimeError, "did not clear"):
+                check(4, elapsed=elapsed, allowance=allowance)
+        for phase in ("startup", "active", "tail", "stopped"):
+            for flag in (2, 8, 16, 64, 128):
+                with self.subTest(phase=phase, flag=flag), self.assertRaises(RuntimeError):
+                    check(4 | flag, phase=phase)
+        with self.assertRaisesRegex(RuntimeError, "during active"):
+            check(4, phase="active")
 
 
 if __name__ == "__main__":

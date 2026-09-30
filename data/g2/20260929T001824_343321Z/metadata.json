@@ -1,0 +1,151 @@
+{
+  "schema": "qkd-g2-tttr-v1",
+  "mode": 3,
+  "settings": {
+    "source": "NI external",
+    "mode": 3,
+    "clock": {
+      "requested_frequency_hz": 500000.0,
+      "requested_high_ns": 100.0,
+      "nominal_timebase_hz": 100000000,
+      "high_ticks": 10,
+      "low_ticks": 190,
+      "realized_nominal_frequency_hz": 500000.0,
+      "realized_high_ns": 100,
+      "realized_low_ns": 1900,
+      "realized_duty_cycle": 0.05
+    },
+    "device": "Dev1",
+    "eom": null,
+    "duration_ms": 60000,
+    "warmup_s": 1.0,
+    "ph330": {
+      "device_index": 0,
+      "serial": "1050578",
+      "laser_hz": 500000.0,
+      "sync_divider": 1,
+      "binning": 6,
+      "sync": {
+        "mode": "edge",
+        "edge": "falling",
+        "level_mv": -60,
+        "offset_ps": 0
+      },
+      "detectors": [
+        {
+          "mode": "edge",
+          "edge": "rising",
+          "level_mv": 200,
+          "offset_ps": 0,
+          "channel": 0
+        },
+        {
+          "mode": "edge",
+          "edge": "rising",
+          "level_mv": 200,
+          "offset_ps": 4500,
+          "channel": 1
+        }
+      ]
+    },
+    "dll": "C:\\Program Files\\PicoQuant\\UniHarp\\PH330Lib.dll",
+    "output": "C:\\Users\\nanometa\\Documents\\QKD_Code\\data\\g2",
+    "note": "",
+    "geometry": "QKD PBS outputs",
+    "analysis": {
+      "bin_ps": 2000,
+      "requested_halfwidth_ps": 0,
+      "zero_ps": 0,
+      "peak_halfwidth_ps": 0,
+      "first": 2,
+      "last": 5,
+      "gate_ps": null,
+      "max_pairs": 50000000
+    }
+  },
+  "config": {
+    "device_index": 0,
+    "serial": "1050578",
+    "laser_hz": 500000.0,
+    "sync_divider": 1,
+    "binning": 6,
+    "sync": {
+      "mode": "edge",
+      "edge": "falling",
+      "level_mv": -60,
+      "offset_ps": 0
+    },
+    "detectors": [
+      {
+        "mode": "edge",
+        "edge": "rising",
+        "level_mv": 200,
+        "offset_ps": 0,
+        "channel": 0
+      },
+      {
+        "mode": "edge",
+        "edge": "rising",
+        "level_mv": 200,
+        "offset_ps": 4500,
+        "channel": 1
+      }
+    ]
+  },
+  "status": "completed",
+  "complete": true,
+  "records": 33503,
+  "flags_seen": 0,
+  "cleanup_errors": [],
+  "ao_zeroed_on_exit": false,
+  "requested_duration_ms": 60000,
+  "host_start_utc": "2026-09-29T00:18:24.343594+00:00",
+  "raw_format": "GenericT3",
+  "raw_dtype": "little-endian uint32",
+  "hardware": {
+    "model": "PicoHarp 330",
+    "part": "930050",
+    "hardware_version": "1.0",
+    "input_count": 2,
+    "features": 935,
+    "base_resolution_ps": 1.0,
+    "resolution_ps": 64.0,
+    "channel_offsets_ps": {
+      "sync": 0,
+      "inputs": {
+        "0": 0,
+        "1": 4500
+      }
+    },
+    "channel_offsets_note": "Configured SDK values, not measured readbacks; already applied to TTTR.",
+    "histogram_offset_ns": 0,
+    "markers_enabled": false,
+    "event_filter_enabled": false,
+    "extended_deadtime_enabled": false
+  },
+  "dll_version": "2.0",
+  "rates_before": {
+    "host_utc": "2026-09-29T00:18:28.173276+00:00",
+    "sync_hz": 499990,
+    "input_hz": [
+      150,
+      140
+    ],
+    "warnings": 0,
+    "warnings_text": ""
+  },
+  "raw_file": "events.t3raw",
+  "measured_sync_period_s": 2.000014e-06,
+  "elapsed_ms": 60000.0,
+  "rates_after": {
+    "host_utc": "2026-09-29T00:19:28.677815+00:00",
+    "sync_hz": 500000,
+    "input_hz": [
+      120,
+      170
+    ],
+    "warnings": 0,
+    "warnings_text": ""
+  },
+  "host_end_utc": "2026-09-29T00:19:28.692538+00:00"
+}

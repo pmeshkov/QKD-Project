@@ -3,7 +3,9 @@ Previous plan: docs/planning/plan_before_cleanup_2026-09-28.txt
 Earlier detailed draft: docs/planning/initial_plan_2026-09-20.txt
 
 CONFIRMED BENCH
-- NI USB-6351: AO0 Alice; AO1 Bob; Ctr0/PFI12 -> BDL SYNC IN.
+- NI USB-6351: AO0 Alice; AO1 Bob; Ctr0/PFI12 -> function generator -> BDL SYNC IN.
+  User clarification: function-generator output pulse width is set manually;
+  the GUI's high-ns controls PFI12 only. Do not assume these widths are identical.
   BDL TRG OUT -> PicoHarp SYNC; PBS detector outputs -> CH1/CH2.
   Existing NI detector input wiring remains reserved; do not casually reassign it.
 - External triggering tested from 1 kHz to 1 MHz. Above 1 MHz the user manually
@@ -20,10 +22,24 @@ CONFIRMED BENCH
   Profiles are editable; confirm actual working settings rather than universalizing
   these values. Different saved tools may have different input settings.
 - QKD setup handles arrival/gate calibration and polarization/protocol data.
-  Separate quantum emitter setup handles paper-quality lifetime/g2, outside
-  this repository. The QKD PBS is not swapped for an HBT beamsplitter.
+  Separate quantum emitter setup provides independent lifetime/g2 measurements,
+  but its limited window motivates a QKD-setup correlation mode as well.
+  User confirms QKD PBS outputs remain connected for this measurement.
 
 IMPLEMENTED
+- CalibrateEOMVoltages.ipynb: measured-grid joint Alice/Bob calibration using
+  both detectors and all eight settings, with 50:50/extinction targets.
+  Reads true per-point PicoHarp counts from sidecars (CSV counters cumulative).
+  Includes held-out checks, independent exact-voltage validation, uncertainty,
+  candidate exports and unmeasured refinement suggestions. No hardware control.
+  Latest example sweep does not validate all requested tolerances; refine/retest.
+- Pulsed / CW g2: both PicoHarp channels, NI clock 500 kHz-1 MHz or manual
+  pulsed source through 80 MHz; CW uses T2, pulsed uses T3. Full raw data saved
+  under data/g2, offline gating and adjustable correlation window, preview and
+  CSVs. PBS results explicitly labeled polarization-resolved cross-correlation.
+  Guide: pulsed_GUI/G2.md. Bench validation pending; no instruments driven here.
+  Verification: 125 offline tests passed, including pulsed/CW synthetic data,
+  overflow decoding, cross-chunk pairs, normalization and failed-run cleanup.
 - EOM calibration sweep: adjustable N x N grid (default N=60) and eight-column CSV using
   PicoHarp counts, leaving detectors connected. CW uses timed T2 counting;
   pulsed options use T3. No raw timestamp files; source/g2 plans unchanged.
@@ -33,13 +49,20 @@ IMPLEMENTED
 - One root launcher: Start QKD.cmd or launch.py. Controls grouped by purpose;
   settings retained per mode. Older duplicated pulsed code archived, data retained.
 - Live alignment: PicoHarp rates with live NI clock and Alice/Bob voltage changes.
+  Also supports manual laser CW/internal 2/20/80 MHz: no Ctr0/PFI12 reservation,
+  live EOM adjustment retained, CW does not require SYNC. Manual disconnection
+  and laser-mode confirmation required; stop/restart to switch source modes.
 - Polarization matrix: eight static settings, both detectors, sixteen arrival
   histograms and count/probability matrices. User reports acquisition works.
+  Figures now use one color per output channel and diagonal unity ordering:
+  rows S0/S2/S1/S3, outputs HV/CH2, HV/CH1, RL/CH2, RL/CH1 (user confirmed).
+  Voltage labels retained; PNG/PDF/SVG exports and saved plot permutation.
+  Physical H/V/R/L names remain unassigned unless independently confirmed.
   Default 60 s per setting; saved durations retained. Gate/rebin offline.
   Explicit internal 2/20/80 MHz selector with manual changeover confirmation.
-- Repeating H-V-R-L: Alice cycles four states, Bob switches basis every four
+- Ordered BB84: Alice cycles four states, Bob switches basis every four
   trials, giving all eight combinations. Finite hardware-timed AO + delayed clock.
-- Random BB84: independent OS-random Alice state and Bob basis per trial.
+- Randomized BB84: independent OS-random Alice state and Bob basis per trial.
   Complete choices and voltage waveforms saved before output; no regeneration.
   Both modes save ungated T3 and warm-up data, with bounded buffer streaming.
   Start with 1 s warm-up + 1 s experimental output at 500 kHz / 1200 ns.
@@ -47,7 +70,16 @@ IMPLEMENTED
   Notebook opposite pairs are indices 0/2 and 1/3. Physical H/V/R/L labels,
   Bob basis voltages and detector outcome labels still need confirmation.
   New protocol profiles inherit saved polarization values provisionally.
-- New finite protocol acquisition has offline/simulated tests only so far.
+- Finite protocol acquisition: a completed ordered bench run is now saved at
+  data/bb84/ordered/20260929T223324_975263Z_ordered; timing origin remains unverified.
+  First bench attempt accepted NI timing but aborted on initial PH330 SYNC_LOST.
+  Added bounded startup allowance within warm-up and logged finite-stop boundary
+  flags; in-run loss and data-loss faults remain fatal. The saved retry completed.
+  Ordered BB84 now has all-eight-phase diagnostics, gated fractions, pointwise
+  counting intervals and hypothesis deviations; no origin is inferred from a fit.
+  Record includes its own sequence preparation, all in one run folder. Prepare
+  only is a separate offline test. Analysis saves beneath its source run folder.
+  Renamed tools preserve settings; shared acquisition/analysis regression: 155 tests passed.
   Final cleanup verification: 107 offline tests passed; no instruments driven.
   Guides: README.md, pulsed_GUI/BB84.md, pulsed_GUI/PULSED_POLARIZATION.md.
 
@@ -70,6 +102,33 @@ NEXT BENCH STEPS — ONE AT A TIME
    with repeat acquisitions and source characterization from the emitter setup.
 
 DATA CONTRACT / REMAINING LIMIT
+- Proposed 100 kHz -> experimental-rate preamble cannot identify an exact trial
+  boundary from T3 alone: records contain SYNC count/microtime, not individual
+  SYNC intervals. Need a recorded hardware marker, or T2 for the whole rate-step
+  experiment. No rate-switch acquisition or automatic origin inference enabled.
+- Live alignment is display-only: bounded in-memory history, no new run files.
+  GUI control preferences remain remembered. Existing alignment files unchanged.
+- New EOM sweeps: data/eoms/<run>/ with CSV/sidecars/preview together; calibration
+  results default to <run>/analysis/<analysis run>/. Old flat inputs and historical
+  calibration folders remain readable; no existing measurements were moved.
+- Polarization arrival figures support independent X-axis start/end in ns.
+  Display zoom leaves event histograms, gates and matrix values unchanged.
+  Display now defaults to native bins (64 ps in the current recordings), with
+  no smoothing. Matching saved six-voltage calibration roles preserve expected
+  diagonal ordering after renaming index states; physical names remain provisional.
+- Main GUI now includes EOM calibration analysis using the notebook's shared
+  measured-grid core. Sweep -> analyze -> load six voltages into a measurement
+  form. Review statistical checks; loading does not start hardware.
+- Recent-run locations persist between launches. Analysis pickers and Use latest
+  shortcuts cover calibration, polarization, g2, lifetime and both BB84 modes.
+- Calibration handoff: notebook final JSON -> GUI Voltages / Paste calibration.
+  Six values transfer together; no hardware output on paste. Candidate provenance
+  and statistical checks are saved; physical labels remain unconfirmed.
+- Plot aliases S0/S1/S2/S3 = provisional H/R/V/L. PBS transmits H to CH1,
+  reflects V to CH2, but Bob EOM action must be checked before absolute labeling.
+- Acquisition Files tab: sample type, bandpass filter, laser power/location,
+  free notes. Saved per run; review remembered entries for each new sample.
+- Analysis DPI is adjustable; polarization opens both figures automatically.
 - T3 mode, SYNC divider 1; retain overflow records. Arrival gating is offline.
 - Planned NI index = warmup_count + trial_index; both Alice and Bob are saved.
 - Current protocol sessions explicitly have alignment_status=unverified,

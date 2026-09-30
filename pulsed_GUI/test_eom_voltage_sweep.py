@@ -65,7 +65,7 @@ def values():
 
 class SweepTests(unittest.TestCase):
     def test_header_and_grid_match_original_script_and_notebook(self):
-        source = Path(__file__).resolve().parents[1] / "EOM_scripts/EOM_V_sweep.py"
+        source = Path(__file__).resolve().parents[1] / "EOM_scripts/niDAQ_V_sweep.py"
         tree = ast.parse(source.read_text())
         headers = [ast.literal_eval(n.args[0]) for n in ast.walk(tree)
                    if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
@@ -91,7 +91,7 @@ class SweepTests(unittest.TestCase):
         cfg = sweep.settings(dict(values(), output=str(folder), source=source, points="2"))
         with contextlib.redirect_stdout(io.StringIO()):
             code = sweep.run(cfg, stop, daq=daq, system=system, constants=constants, api=api)
-        meta = json.loads(next(Path(folder).glob("*_sweep.json")).read_text())
+        meta = json.loads(next(Path(folder).rglob("*_sweep.json")).read_text())
         return code, meta, api, daq
 
     def test_cw_counts_and_cumulative_csv_have_exact_numeric_columns(self):
@@ -99,7 +99,11 @@ class SweepTests(unittest.TestCase):
             code, meta, api, daq = self.run_fake(temp)
             self.assertEqual(code, 0)
             self.assertTrue(meta["complete"])
-            with (Path(temp)/meta["csv"]).open(newline="") as stream:
+            csv_path = next(Path(temp).rglob(meta["csv"]))
+            self.assertNotEqual(csv_path.parent, Path(temp))
+            self.assertEqual(meta["layout"], "one-folder-per-sweep-v1")
+            self.assertEqual(len(list(Path(temp).iterdir())), 1)
+            with csv_path.open(newline="") as stream:
                 reader = csv.DictReader(stream)
                 self.assertEqual(reader.fieldnames, sweep.HEADER)
                 rows = list(reader)
@@ -122,7 +126,7 @@ class SweepTests(unittest.TestCase):
                 self.assertEqual(code, expected)
                 self.assertFalse(meta["complete"])
                 self.assertTrue(meta["csv"].endswith(".partial.csv"))
-                self.assertFalse(list(Path(temp).glob("*_Detector_Traces.csv")))
+                self.assertFalse(list(Path(temp).rglob("*_Detector_Traces.csv")))
                 self.assertTrue(meta["ao_zeroed_on_exit"])
                 self.assertEqual(meta["rows"], 0 if failure == "ao" else 1)
 

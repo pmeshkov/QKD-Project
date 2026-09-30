@@ -10,7 +10,7 @@ signalarray0 = np.tile(v_sweep, 60)   # Sweeps from -200 to 200 repeatedly
 signalarray1 = np.repeat(v_sweep, 60) # Steps from -200 to 200 slowly
 
 # 2. Load the detector trace data
-filename = "C:\\Users\\nanometa\\Documents\\QKD_Code\\9_2_26\\Emitter 01\\20260902_213040_Detector_Traces.csv"
+filename = "C:\\Users\\nanometa\\Documents\\QKD_Code\\archived\\day_by_day_scripting\\9_2_26\\Emitter 01\\20260902_213040_Detector_Traces.csv"
 df = pd.read_csv(filename)
 
 # 3. Initialize the 3D plot

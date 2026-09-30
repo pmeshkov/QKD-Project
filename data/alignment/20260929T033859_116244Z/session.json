@@ -1,0 +1,114 @@
+{
+  "schema": "qkd-live-alignment-v1",
+  "status": "stopped",
+  "settings": {
+    "device": "Dev1",
+    "clock": {
+      "requested_frequency_hz": 750000.0,
+      "requested_high_ns": 100.0,
+      "nominal_timebase_hz": 100000000,
+      "high_ticks": 10,
+      "low_ticks": 123,
+      "realized_nominal_frequency_hz": 751879.6992481203,
+      "realized_high_ns": 100,
+      "realized_low_ns": 1230,
+      "realized_duty_cycle": 0.07518796992481203
+    },
+    "eom": {
+      "target_eom_v": [
+        0.0,
+        0.0
+      ],
+      "daq_v": [
+        -0.0,
+        -0.0
+      ],
+      "assumed_hv_gain": -20.0
+    },
+    "ph330": {
+      "device_index": 0,
+      "serial": "1050578",
+      "laser_hz": 751879.6992481203,
+      "sync_divider": 1,
+      "binning": 6,
+      "sync": {
+        "mode": "edge",
+        "edge": "falling",
+        "level_mv": -60,
+        "offset_ps": 0
+      },
+      "detectors": [
+        {
+          "mode": "edge",
+          "edge": "rising",
+          "level_mv": 200,
+          "offset_ps": 0,
+          "channel": 0
+        },
+        {
+          "mode": "edge",
+          "edge": "rising",
+          "level_mv": 200,
+          "offset_ps": 4500,
+          "channel": 1
+        }
+      ]
+    },
+    "dll": "C:\\Program Files\\PicoQuant\\UniHarp\\PH330Lib.dll",
+    "poll_s": 0.2,
+    "average_s": 0.5,
+    "history_s": 30.0,
+    "output": "C:\\Users\\nanometa\\Documents\\QKD_Code\\data\\alignment",
+    "note": ""
+  },
+  "ni_serial": 38160323,
+  "dll_version": "2.0",
+  "ao_zeroed_on_exit": true,
+  "cleanup_errors": [],
+  "samples": 2291,
+  "recording": "PH330 rate-meter samples only; no photon timestamps or exact pulse index",
+  "ph330_hardware": {
+    "model": "PicoHarp 330",
+    "part": "930050",
+    "hardware_version": "1.0",
+    "input_count": 2,
+    "features": 935,
+    "base_resolution_ps": 1.0,
+    "resolution_ps": 64.0,
+    "channel_offsets_ps": {
+      "sync": 0,
+      "inputs": {
+        "0": 0,
+        "1": 4500
+      }
+    },
+    "channel_offsets_note": "Configured SDK values, not measured readbacks; already applied to TTTR.",
+    "histogram_offset_ns": 0,
+    "markers_enabled": false,
+    "event_filter_enabled": false,
+    "extended_deadtime_enabled": false
+  },
+  "last_clock": {
+    "requested_frequency_hz": 750000.0,
+    "requested_high_ns": 100.0,
+    "nominal_timebase_hz": 100000000,
+    "high_ticks": 10,
+    "low_ticks": 123,
+    "realized_nominal_frequency_hz": 751879.6992481203,
+    "realized_high_ns": 100,
+    "realized_low_ns": 1230,
+    "realized_duty_cycle": 0.07518796992481203
+  },
+  "last_eom": {
+    "target_eom_v": [
+      43.0,
+      30.0
+    ],
+    "daq_v": [
+      -2.15,
+      -1.5
+    ],
+    "assumed_hv_gain": -20.0
+  },
+  "host_end_utc": "2026-09-29T03:47:28.171898+00:00"
+}

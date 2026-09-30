@@ -1,0 +1,84 @@
+{
+  "schema": "qkd-ph330-raw-t3-v1",
+  "status": "completed",
+  "complete": true,
+  "config": {
+    "device_index": 0,
+    "serial": "1050578",
+    "binning": 6,
+    "laser_hz": 751879.6992481203,
+    "sync_divider": 1,
+    "sync": {
+      "mode": "edge",
+      "edge": "falling",
+      "level_mv": -60,
+      "offset_ps": 0
+    },
+    "detectors": [
+      {
+        "mode": "edge",
+        "edge": "rising",
+        "level_mv": 200,
+        "offset_ps": 0,
+        "channel": 0
+      },
+      {
+        "mode": "edge",
+        "edge": "rising",
+        "level_mv": 200,
+        "offset_ps": 4500,
+        "channel": 1
+      }
+    ]
+  },
+  "hardware": {
+    "model": "PicoHarp 330",
+    "part": "930050",
+    "hardware_version": "1.0",
+    "input_count": 2,
+    "features": 935,
+    "base_resolution_ps": 1.0,
+    "resolution_ps": 64.0,
+    "channel_offsets_ps": {
+      "sync": 0,
+      "inputs": {
+        "0": 0,
+        "1": 4500
+      }
+    },
+    "channel_offsets_note": "Configured SDK values, not measured readbacks; already applied to TTTR.",
+    "histogram_offset_ns": 0,
+    "markers_enabled": false,
+    "event_filter_enabled": false,
+    "extended_deadtime_enabled": false
+  },
+  "records": 107530,
+  "flags_seen": 4,
+  "dll": "C:\\Program Files\\PicoQuant\\UniHarp\\PH330Lib.dll",
+  "library_version": "2.0",
+  "raw_file": "events.t3raw",
+  "record_format": "GenericT3",
+  "record_type": "0x00010307",
+  "dtype": "little-endian uint32",
+  "measurement_control": "software_start_stop",
+  "alignment_status": "unverified",
+  "sync_origin": null,
+  "startup_sync_allowance_s": 0.5,
+  "sync_boundary_note": "SYNC_LOST may occur before laser startup or after finite clock stop. All flags and raw records are retained. Host phase/record offsets are diagnostic only, not valid-event boundaries or pulse alignment.",
+  "note": "Includes pre-NI and post-NI events. No pulse-index correspondence established.",
+  "host_start_utc": "2026-09-29T23:32:51.494447+00:00",
+  "flags_by_phase": {
+    "startup": 4,
+    "active": 0,
+    "tail": 0,
+    "stopped": 0
+  },
+  "startup_sync_loss_observed": true,
+  "startup_sync_clear_observed": true,
+  "startup_sync_clear_host_seconds_after_ni_start": 0.1421499999705702,
+  "startup_sync_clear_raw_record_offset": 0,
+  "measured_sync_period_s": 1.330011e-06,
+  "elapsed_ms": 0.0,
+  "host_end_utc": "2026-09-29T23:34:52.835820+00:00",
+  "cleanup_errors": []
+}

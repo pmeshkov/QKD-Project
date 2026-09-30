@@ -1,0 +1,6 @@
+Measurement notes:
+
+Excitation: CW, 4 uW
+Source: lens reflection
+Photon collection time: 0.1 s
+Wait after voltage change: 10 ms

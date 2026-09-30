@@ -1,0 +1,15 @@
+Measurement notes:
+
+Excitation: pulsed, 
+
+	Laser off power: 0.017 uW
+
+	Run: 20260928_223436_822284_Detector_Traces
+	Power: 0.034 uW
+
+	Run: 20260928_224722_255952_sweep
+	Power: 0.45 uW
+
+Source: lens reflection
+Photon collection time: see metadata JSON file
+Wait after voltage change: see metadata JSON file

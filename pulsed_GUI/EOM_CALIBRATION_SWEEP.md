@@ -63,16 +63,28 @@ acquisitions. They are not per-point counts. The existing notebook uses only
 the rate columns, so its analysis needs no changes. Per-point counts and measured
 integration times are also saved separately in the points JSONL file.
 
-For a successful run, files are:
+Each new sweep has its own folder, `data/eoms/<sweep timestamp>/` (or beneath
+your configured output directory). For a successful run, that folder contains:
 
 - `<timestamp>_Detector_Traces.csv`: exactly N² numerical rows, ready for the notebook.
 - `<timestamp>_Detector_Traces.png`: measured CH1/CH2 rate surfaces.
 - `<timestamp>_sweep.json`: settings, grid, completion/cleanup status and file names.
 - `<timestamp>_points.jsonl`: per-point counts, actual exposure and acquisition flags.
 
-Select the new CSV in the notebook's existing `directory` / `file` input cell,
-as with previous scans. Set the notebook's `N` to the GUI value; leave voltage-array
-construction and fitting code unchanged. The saved sweep JSON records N as `settings.points`. Existing CSV files are never overwritten.
+Running calibration analysis adds `analysis/<analysis timestamp>/` inside the
+same sweep folder. Reanalysis creates another analysis folder without replacing
+previous results. CSV names, columns and sidecar conventions are unchanged, so
+the app handoff and existing notebooks remain compatible. Existing data files
+are left in place.
+
+To process within the app, click **Analyze last completed sweep →**, review the
+search settings, and click Run. **EOM calibration analysis** reads N from the CSV
+and can load the resulting six voltages directly into polarization/BB84 forms.
+See [calibration analysis](EOM_CALIBRATION_ANALYSIS.md).
+
+The notebooks still work. In the original fit notebook, select the new CSV and
+set `N` to the GUI value. `CalibrateEOMVoltages.ipynb` detects the grid size itself.
+The saved sweep JSON records N as `settings.points`. Existing CSV files are never overwritten.
 
 During acquisition the file is named `.partial.csv` and flushed after every
 completed voltage pair. Stop/failure retains that file; a partial dwell is not
@@ -83,4 +95,4 @@ close PicoHarp. A manually controlled laser remains under manual control.
 
 This implementation has offline simulated-device tests. Verify a short dwell
 and the displayed counts on the bench before relying on a calibration fit.
-The original NI-counting `EOM_scripts/EOM_V_sweep.py` remains available.
+The original NI-counting workflow remains available as `EOM_scripts/niDAQ_V_sweep.py`.

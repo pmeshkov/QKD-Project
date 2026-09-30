@@ -65,7 +65,9 @@ def cross_histogram(a, b, halfwidth_ps=2_500_000, bin_ps=2000, max_pairs=20_000_
     return edges, hist
 
 
-def preview(folder, max_records=2_000_000):
+def preview(folder, max_records=2_000_000, plot_dpi=300):
+    from figure_options import validated_dpi
+    plot_dpi = validated_dpi(plot_dpi)
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -145,7 +147,8 @@ def preview(folder, max_records=2_000_000):
         ax.grid(alpha=0.15)
     if notes:
         fig.text(0.5, 0.005, " | ".join(notes), ha="center", fontsize=8, color="darkred")
-    fig.savefig(folder / "preview.png", dpi=150)
+    fig.savefig(folder / "preview.png", dpi=plot_dpi)
+    report["plot_dpi"] = plot_dpi
     plt.close(fig)
     np.savetxt(folder / "coincidences_preview.csv",
                np.column_stack(((edges[:-1]+edges[1:])/2000, hist)), delimiter=",",
@@ -157,12 +160,14 @@ def preview(folder, max_records=2_000_000):
 
 
 def main(argv=None):
+    from figure_options import validated_dpi
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("folder", type=Path, help="Run folder containing metadata.json")
     parser.add_argument("--max-records", type=int, default=2_000_000)
+    parser.add_argument("--plot-dpi", type=validated_dpi, default=300)
     args = parser.parse_args(argv)
     try:
-        preview(args.folder, args.max_records)
+        preview(args.folder, args.max_records, args.plot_dpi)
         return 0
     except (OSError, ValueError, KeyError) as exc:
         print(f"Preview failed: {exc}")
@@ -170,5 +175,5 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
-    from gui_app import launch
-    launch("Preview saved run")
+    # Supporting decoder/legacy CLI; measurement-specific analysis lives in the app.
+    raise SystemExit(main())

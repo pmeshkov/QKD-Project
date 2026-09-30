@@ -1,0 +1,25 @@
+{
+  "status": "error",
+  "complete": false,
+  "acquisition": "C:\\Users\\nanometa\\Documents\\QKD_Code\\data\\g2\\20260929T002122_749038Z",
+  "mode": 3,
+  "geometry": "QKD PBS outputs",
+  "options": {
+    "bin_ps": 2000,
+    "requested_halfwidth_ps": 0,
+    "zero_ps": 0,
+    "peak_halfwidth_ps": 0,
+    "first": 2,
+    "last": 5,
+    "gate_ps": null,
+    "max_pairs": 50000000
+  },
+  "lag": "CH2 minus CH1; configured hardware offsets already applied",
+  "acquisition_seconds": 120.0,
+  "period_ns": 1000.009,
+  "background_subtracted": false,
+  "detector_efficiency_corrected": false,
+  "interpretation": "PBS-output cross-correlation",
+  "assumptions": "Stationary intensities; side peaks must represent an uncorrelated reference. No uncertainty interval estimated.",
+  "error": "T3 photon delays exceed the measured period; inspect SYNC/input offsets."
+}

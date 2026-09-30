@@ -5,12 +5,13 @@ from mpl_toolkits.mplot3d import Axes3D
 from scipy.optimize import curve_fit
 
 # 1. Define the measurement logic arrays
-v_sweep = np.linspace(-200, 200, 60)
-signalarray0 = np.tile(v_sweep, 60)
-signalarray1 = np.repeat(v_sweep, 60)
+N=50
+v_sweep = np.linspace(-200, 200, N)
+signalarray0 = np.tile(v_sweep, N)
+signalarray1 = np.repeat(v_sweep, N)
 
 # 2. Load the detector trace data
-df = pd.read_csv("C:\\Users\\nanometa\\Documents\\QKD_Code\\9_2_26\\Emitter 01\\20260902_213040_Detector_Traces.csv")
+df = pd.read_csv("C:\\Users\\nanometa\\Documents\\QKD_Code\\data\\eoms\\20260929_192128_263454\\20260929_192128_263454_Detector_Traces.csv")
 z0 = df['Rate0_Hz'].values
 z1 = df['Rate1_Hz'].values
 
@@ -45,7 +46,7 @@ fig = plt.figure(figsize=(14, 6))
 # Subplot 1: Trace 0
 ax1 = fig.add_subplot(121, projection='3d')
 ax1.scatter(signalarray0, signalarray1, z0, c='blue', s=5, alpha=0.3, label='Raw Trace 0')
-ax1.plot_surface(X, Y, Z0_fit, color='cyan', alpha=0.5, edgecolor='none')
+ax1.plot_wireframe(X, Y, Z0_fit, color='cyan', alpha=0.7, label='Trace 0 fit')
 ax1.set_xlabel('EOM1 Voltage (V)')
 ax1.set_ylabel('EOM2 Voltage (V)')
 ax1.set_zlabel('Detector Rate (Hz)')
@@ -55,7 +56,7 @@ ax1.legend()
 # Subplot 2: Trace 1
 ax2 = fig.add_subplot(122, projection='3d')
 ax2.scatter(signalarray0, signalarray1, z1, c='red', s=5, alpha=0.3, label='Raw Trace 1')
-ax2.plot_surface(X, Y, Z1_fit, color='orange', alpha=0.5, edgecolor='none')
+ax2.plot_wireframe(X, Y, Z1_fit, color='orange', alpha=0.7, label='Trace 1 fit')
 ax2.set_xlabel('EOM1 Voltage (V)')
 ax2.set_ylabel('EOM2 Voltage (V)')
 ax2.set_zlabel('Detector Rate (Hz)')

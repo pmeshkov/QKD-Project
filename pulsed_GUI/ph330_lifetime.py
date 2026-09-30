@@ -119,7 +119,9 @@ def tail_fit(counts, edges, start_ns, stop_ns):
     return result, (x, prediction, (y-prediction)/np.sqrt(prediction))
 
 
-def analyze(folder, rebin=8, fit_window=None, show=False):
+def analyze(folder, rebin=8, fit_window=None, show=False, plot_dpi=300):
+    from figure_options import validated_dpi
+    plot_dpi = validated_dpi(plot_dpi)
     import matplotlib
     if not show:
         matplotlib.use("Agg")
@@ -133,7 +135,7 @@ def analyze(folder, rebin=8, fit_window=None, show=False):
     summary.update(channel="front-panel CH1 / SDK index 0", processed_records=meta["records"],
                    native_bin_width_ns=float(edges[1]-edges[0]),
                    plot_bin_width_ns=float(plot_edges[1]-plot_edges[0]),
-                   status="decay_histogram_only", fit=None)
+                   status="decay_histogram_only", fit=None, plot_dpi=plot_dpi)
     summary["photons_with_microtime_at_or_beyond_period"] = int(counts[edges[:-1] >= period].sum())
     curve = None
     if fit_window is not None:
@@ -182,7 +184,7 @@ def analyze(folder, rebin=8, fit_window=None, show=False):
     axes[-1].set(xlabel="Photon delay from SYNC (ns; includes cable/instrument delay)", xlim=(0, limit))
     for ax in axes:
         ax.grid(alpha=0.2)
-    fig.savefig(folder / "lifetime_ch1.png", dpi=150)
+    fig.savefig(folder / "lifetime_ch1.png", dpi=plot_dpi)
     print(json.dumps(summary, indent=2))
     print(f"Lifetime plot: {folder / 'lifetime_ch1.png'}")
     if show:
@@ -192,7 +194,12 @@ def analyze(folder, rebin=8, fit_window=None, show=False):
 
 
 def main(argv=None, stop_event=None):
+    from figure_options import validated_dpi
+    from measurement_metadata import add_arguments, from_arguments
     parser = argparse.ArgumentParser(description=__doc__)
+    add_arguments(parser)
+    parser.add_argument("--note", default="")
+    parser.add_argument("--plot-dpi", type=validated_dpi, default=300)
     action = parser.add_mutually_exclusive_group()
     action.add_argument("--rates", action="store_true")
     action.add_argument("--acquire", action="store_true")
@@ -219,7 +226,7 @@ def main(argv=None, stop_event=None):
                                 not 0 <= args.fit_window[0] < args.fit_window[1]):
             raise ValueError("Provide a finite increasing --fit-window in ns.")
         if args.analyze:
-            analyze(args.analyze, args.rebin, args.fit_window, args.show)
+            analyze(args.analyze, args.rebin, args.fit_window, args.show, args.plot_dpi)
             return 0
         if args.sync_edge is None or args.sync_level_mv is None:
             raise ValueError("Specify --sync-edge and --sync-level-mv for the actual attenuated SYNC pulse.")
@@ -235,7 +242,8 @@ def main(argv=None, stop_event=None):
                "sync": {"mode": "edge", "edge": args.sync_edge, "level_mv": args.sync_level_mv},
                "detectors": [{"channel": 0, "label": "CH1 lifetime detector", "mode": "edge",
                               "edge": "rising", "level_mv": args.ch1_level_mv}],
-               "notes": "CH1 lifetime measurement; laser internally clocked. User-specified SYNC. No DAQ/EOM control."}
+               "notes": args.note, "measurement": from_arguments(args),
+               "profile": "CH1 lifetime; manual laser, user-specified SYNC; no DAQ/EOM control."}
         validate(cfg, detector_count=1, expected_laser_hz=None)
         if args.fit_window and args.fit_window[1] >= 1e9/args.laser_hz:
             raise ValueError("Fit window must end before the next excitation pulse.")
@@ -246,7 +254,7 @@ def main(argv=None, stop_event=None):
         folder = run(PH330(args.dll), cfg, args.seconds, args.output, args.acquire,
                      stop_event=stop_event)
         if folder:
-            analyze(folder, args.rebin, args.fit_window, args.show)
+            analyze(folder, args.rebin, args.fit_window, args.show, args.plot_dpi)
         return 0
     except KeyboardInterrupt:
         print("Interrupted. Check metadata for acquisition completion status.")

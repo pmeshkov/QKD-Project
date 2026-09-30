@@ -1,0 +1,38 @@
+{
+  "status": "completed",
+  "complete": true,
+  "acquisition": "C:\\Users\\nanometa\\Documents\\QKD_Code\\data\\g2\\20260929T001824_343321Z",
+  "mode": 3,
+  "geometry": "QKD PBS outputs",
+  "options": {
+    "bin_ps": 2000,
+    "requested_halfwidth_ps": 0,
+    "zero_ps": 0,
+    "peak_halfwidth_ps": 0,
+    "first": 2,
+    "last": 5,
+    "gate_ps": null,
+    "max_pairs": 50000000
+  },
+  "lag": "CH2 minus CH1; configured hardware offsets already applied",
+  "acquisition_seconds": 60.0,
+  "period_ns": 2000.0139999999997,
+  "background_subtracted": false,
+  "detector_efficiency_corrected": false,
+  "interpretation": "PBS-output cross-correlation",
+  "assumptions": "Stationary intensities; side peaks must represent an uncorrelated reference. No uncertainty interval estimated.",
+  "photons": [
+    6301,
+    8882
+  ],
+  "photons_before_gate": [
+    6301,
+    8882
+  ],
+  "pairs": 27,
+  "half_range_ns": 12002.0,
+  "pulsed_central_to_side_area_ratio": 0.42105258430286174,
+  "normalization": "Central area / mean selected symmetric side areas (finite exposure corrected)",
+  "t3_period_rounding_ps": 2.3283064365386963e-10,
+  "insufficient_reference": false
+}

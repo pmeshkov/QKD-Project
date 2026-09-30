@@ -15,6 +15,11 @@ from pulsed_polarization import FORM as POLARIZATION_FORM, HELP_TEXT as POLARIZA
 from laser_clock_eom_counts import TOOL as LIVE_COUNTS_TOOL, FORM as LIVE_COUNTS_FORM, HELP as LIVE_COUNTS_HELP
 import bb84_controls as bb84
 import eom_voltage_sweep as sweep
+import g2_measurement as g2
+import eom_calibration as calibration
+import recent_data
+from figure_options import FIELD as DPI_FIELD
+from measurement_metadata import FORM as MEASUREMENT_FORM, read as measurement_context
 
 ROOT = Path(__file__).resolve().parent
 SETTINGS = ROOT / "gui_settings.json"
@@ -22,6 +27,8 @@ DLL = r"C:\Program Files\PicoQuant\UniHarp\PH330Lib.dll"
 TOOLS = {
     LIVE_COUNTS_TOOL: "laser_clock_eom_counts",
     sweep.TOOL: "eom_voltage_sweep",
+    calibration.TOOL: "eom_calibration",
+    g2.TOOL: "g2_measurement",
     "Pulsed polarization": "pulsed_polarization",
     bb84.ORDERED: "bb84_controls",
     bb84.RANDOM: "bb84_controls",
@@ -31,13 +38,11 @@ TOOLS = {
     "Laser clock": "laser_clock",
     "Laser clock + EOM": "laser_clock_eom",
     "G2 acquisition": "ph330_acquire",
-    "Preview saved run": "ph330_preview",
 }
 DISPLAY_NAMES = {LIVE_COUNTS_TOOL: "Live alignment", "Pulsed polarization": "Polarization matrix",
                  "CH1 lifetime": "Arrival time / lifetime (CH1)", "EOM timing scope": "EOM timing on scope",
                  "Connection test": "Device connection", "Laser clock": "Advanced: laser clock only",
-                 "Laser clock + EOM": "Advanced: clock + static voltages", "G2 acquisition": "Advanced: two-channel T3",
-                 "Preview saved run": "Advanced: raw T3 preview"}
+                 "Laser clock + EOM": "Advanced: clock + static voltages", "G2 acquisition": "Advanced: two-channel T3"}
 
 
 def display_name(tool):
@@ -59,6 +64,8 @@ COMMON = [
     ("ch1-level-mv", "CH1 threshold (mV)", "300", None),
 ]
 SPECS = {
+    calibration.TOOL: calibration.FORM,
+    g2.TOOL: g2.FORM,
     sweep.TOOL: sweep.FORM,
     bb84.ORDERED: bb84.form("ordered"),
     bb84.RANDOM: bb84.form("random"),
@@ -118,11 +125,9 @@ SPECS = {
         ("seconds", "Duration (s)", "10", None),
         ("output", "Data directory", str(ROOT / "runs" / "ph330"), "directory"),
         ("preview", "Make plots after recording", "Yes", ["Yes", "No"]),
+        DPI_FIELD,
+        *MEASUREMENT_FORM,
         ("notes", "Measurement notes", "Internal 2 MHz laser; CH1 transmitted, CH2 reflected.", None),
-    ],
-    "Preview saved run": [
-        ("folder", "Run folder containing metadata.json", "", "directory"),
-        ("max-records", "Maximum raw records to preview", "2000000", None),
     ],
     "CH1 lifetime": [
         ("action", "Action", "Check settings", ["Check settings", "Check rates", "Record", "Analyze saved run"]),
@@ -134,9 +139,14 @@ SPECS = {
         ("fit", "Fit an exponential decay tail", "No", ["No", "Yes"]),
         ("fit-start", "Fit start (ns after SYNC)", "", None),
         ("fit-stop", "Fit end (ns after SYNC)", "", None),
+        DPI_FIELD,
+        *MEASUREMENT_FORM,
+        ("note", "Measurement notes", "", None),
     ],
 }
 HELP = {
+    calibration.TOOL: calibration.HELP,
+    g2.TOOL: g2.HELP,
     sweep.TOOL: sweep.HELP,
     bb84.ORDERED: "Alice repeats H, V, R, L; Bob holds H/V for four trials, then R/L for four. " + bb84.HELP,
     bb84.RANDOM: "Alice's four states and Bob's two bases are chosen independently each trial using OS randomness. " + bb84.HELP,
@@ -147,7 +157,6 @@ HELP = {
     "Connection test": "Close UniHarp first. Find devices opens/closes the PicoHarp without starting a measurement.",
     "Laser clock": "Ctr0 → PFI12. Check on an oscilloscope first. The DAQ/laser impedance interface is still required. Duration is approximate.",
     "G2 acquisition": "CH1 = transmitted, CH2 = reflected. This profile expects 2 MHz and SYNC divider 1. Verify signal levels into 50 Ω; a threshold does not attenuate a TTL pulse.",
-    "Preview saved run": "Offline only. Plots: counts versus time, photon delays after SYNC, and raw CH2−CH1 coincidences. The preview uses only the selected record prefix.",
     "CH1 lifetime": "Records CH1 only; CH2 is disabled. Start without fitting, inspect the decay, then Analyze saved run with a tail interval. Fits are preliminary, without IRF correction.",
 }
 
@@ -157,22 +166,30 @@ def defaults(tool):
 
 
 def field_group(key):
-    if key.startswith(("alice-", "bob-", "eom1-", "eom2-")) or key in ("hv-ch1", "rl-ch1", "labels-confirmed"):
+    if key.startswith(("alice-", "bob-", "eom1-", "eom2-")) or key in ("hv-ch1", "rl-ch1", "labels-confirmed", "control-eoms"):
         return "Voltages"
     if key.startswith(("sync-", "ch1-", "ch2-")) or key in ("dll", "device-index", "serial", "binning"):
         return "PicoHarp"
-    if key.startswith(("gate", "fit", "plot-")) or key in ("rebin", "folder", "max-records", "preview"):
+    if key.startswith(("gate", "fit", "plot-", "corr-", "peak-", "reference-", "analysis-")) or key in ("rebin", "folder", "max-records", "preview", "max-pairs"):
         return "Analysis"
     if key in ("output", "log-dir", "note", "notes"):
+        return "Files"
+    if key in {item[0] for item in MEASUREMENT_FORM}:
         return "Files"
     return "Run"
 
 
 def initial_settings(tool, settings):
     """Migrate old profiles and seed new modes without overwriting saved choices."""
-    saved = settings.get(tool, {})
+    saved = settings.get(tool, settings.get(bb84.LEGACY_NAMES.get(tool), {}))
     saved = dict(saved) if isinstance(saved, dict) else {}
-    if tool == sweep.TOOL and not saved:
+    if tool in bb84.MODES and saved.get("action") == "Prepare sequence only":
+        saved["action"] = bb84.PREPARE
+    if tool == calibration.TOOL and saved.get("output"):
+        # Migrate only the former factory path; preserve explicit custom overrides.
+        if Path(saved["output"]).resolve() == (ROOT.parent / "data/eoms/calibrations").resolve():
+            saved["output"] = ""
+    if tool in (sweep.TOOL, g2.TOOL) and not saved:
         previous = settings.get("Pulsed polarization", {})
         if isinstance(previous, dict):
             saved = {k: v for k, v in previous.items() if k in ("dll", "serial", "device-index", "binning")
@@ -223,14 +240,17 @@ def acquisition_config(values):
             "binning": int(values["binning"]), "sync": trigger("sync"),
             "detectors": [dict(trigger("ch1"), channel=0, label="CH1 transmitted HBT arm"),
                           dict(trigger("ch2"), channel=1, label="CH2 reflected HBT arm")],
-            "notes": values["notes"]}
+            "notes": values["notes"], "measurement": measurement_context(values)}
 
 
 def arguments(tool, values):
     """Convert form values to the copied backends' existing, tested arguments."""
     action = values.get("action")
     args = []
-    if tool == sweep.TOOL:
+    if tool == calibration.TOOL:
+        calibration.settings(values)
+        return []
+    if tool in (sweep.TOOL, g2.TOOL):
         return []
     if tool in bb84.MODES:
         return []
@@ -257,19 +277,18 @@ def arguments(tool, values):
         args += ["--note", values["note"]]
         if action == "Output timing pattern":
             args.append("--run")
-    elif tool == "Preview saved run":
-        args.append(required(values, "folder"))
-        keys = ["max-records"]
     elif tool == "G2 acquisition":
-        keys = ["dll", "seconds", "output"]
+        keys = ["dll", "seconds", "output", "plot-dpi"]
         if action == "Record" and values["preview"] == "Yes":
             args.append("--preview")
     else:
-        keys = ["rebin"]
+        keys = ["rebin", "plot-dpi"]
         if action == "Analyze saved run":
             args += ["--analyze", required(values, "folder")]
         else:
             keys += [key for key, *_ in COMMON] + ["seconds", "output"]
+            keys += [key for key, *_ in MEASUREMENT_FORM]
+            args += ["--note", values.get("note", "")]
         if values["fit"] == "Yes":
             args += ["--fit-window", required(values, "fit-start"), required(values, "fit-stop")]
     if action == "Check rates":
@@ -278,11 +297,16 @@ def arguments(tool, values):
         args.append("--acquire")
     for key in keys:
         # Equals form allows signed values and paths containing spaces without shell parsing.
-        args.append(f"--{key}={required(values, key)}")
+        value = values.get(key, "") if key in ("bandpass-filter", "laser-power") else required(values, key)
+        args.append(f"--{key}={value}")
     return args
 
 
 def execute(tool, values, stop_event, commands=None, samples=None, emit=None):
+    if tool == calibration.TOOL:
+        return calibration.main(values, stop_event)
+    if tool == g2.TOOL:
+        return g2.main(values, stop_event)
     if tool == sweep.TOOL:
         return sweep.main(values, stop_event)
     if tool in bb84.MODES:
@@ -339,6 +363,8 @@ class App:
         self.live_counts = None
         self.running = self.closing = False
         self.last_folder = self.last_plot = None
+        self.last_plots = []
+        self.run_artifacts = {}
         self.settings = {}
         try:
             saved = json.loads(SETTINGS.read_text(encoding="utf-8"))
@@ -346,6 +372,13 @@ class App:
                 self.settings = saved
         except (OSError, ValueError):
             pass
+        # One-time adoption of the requested native-bin display. Later user
+        # changes to rebinning remain remembered normally.
+        if self.settings.get("__native_polarization_bins__") != 1:
+            profile = self.settings.get("Pulsed polarization")
+            if isinstance(profile, dict):
+                profile["rebin"] = "1"
+            self.settings["__native_polarization_bins__"] = 1
         tool = internal_name(tool)
         self.tool = tk.StringVar(value=display_name(tool))
         top = ttk.Frame(root, padding=12)
@@ -369,6 +402,8 @@ class App:
         panes.add(left, weight=3)
         self.tabs = ttk.Notebook(left)
         self.tabs.pack(fill="both", expand=True)
+        self.workflowbar = ttk.Frame(left, padding=(0, 8))
+        self.workflowbar.pack(fill="x")
         self.pages = {}
         root.bind("<MouseWheel>", self.scroll_form)
         right = ttk.Frame(panes)
@@ -384,7 +419,7 @@ class App:
         self.stop_button.pack(side="left", padx=8)
         self.folder_button = ttk.Button(bar, text="Open data folder", command=self.open_folder, state="disabled")
         self.folder_button.pack(side="left")
-        self.plot_button = ttk.Button(bar, text="Open plot", command=self.open_plot, state="disabled")
+        self.plot_button = ttk.Button(bar, text="Open plots", command=self.open_plots, state="disabled")
         self.plot_button.pack(side="left", padx=8)
         self.status = tk.StringVar(value="Ready")
         ttk.Label(bar, textvariable=self.status).pack(side="right")
@@ -421,6 +456,8 @@ class App:
         self.build_form()
 
     def build_form(self):
+        for child in self.workflowbar.winfo_children():
+            child.destroy()
         for child in self.tabs.winfo_children():
             child.destroy()
         self.pages = {}
@@ -459,6 +496,11 @@ class App:
             row = rows[group]
             rows[group] += 1
             value = str(saved.get(key, initial))
+            family = recent_data.INPUTS.get((self.current_tool, key))
+            if not value and family and key != "independent-csv":
+                recent = recent_data.latest(family, self.settings, ROOT.parent)
+                if recent is not None:
+                    value = str(recent)
             if isinstance(kind, list) and value not in kind:
                 value = initial
             var = self.vars[key] = tk.StringVar(value=value)
@@ -473,21 +515,119 @@ class App:
             if key in ("frequency-hz", "high-ns", "eom1-v", "eom2-v"):
                 self.live_inputs.append(field)
             if kind in ("file", "directory"):
-                button = ttk.Button(form, text="Browse…", command=lambda v=var, k=kind: self.browse(v, k))
+                button = ttk.Button(form, text="Browse…", command=lambda v=var, k=kind, field=key: self.browse(v, k, field))
                 button.grid(row=row*2+1, column=1, padx=(5, 0))
                 self.inputs.append((button, "normal"))
+                if family and key != "independent-csv":
+                    recent_button = ttk.Button(form, text="Use latest", command=lambda field=key: self.use_recent_input(field))
+                    recent_button.grid(row=row*2+1, column=2, padx=(5, 0))
+                    self.inputs.append((recent_button, "normal"))
         self.canvas, self.form = next(iter(self.pages.values()))
+        if self.current_tool == "Pulsed polarization" or self.current_tool in bb84.MODES:
+            self.vars["calibration-transfer"] = tk.StringVar(value=str(saved.get("calibration-transfer", "")))
+            _, form = self.pages["Voltages"]
+            row = rows["Voltages"] * 2
+            button = ttk.Button(form, text="Paste calibration (six voltages)", command=self.paste_calibration)
+            button.grid(row=row, column=0, sticky="w", pady=(12, 4))
+            self.inputs.append((button, "normal"))
+            button = ttk.Button(form, text="Load latest app calibration", command=lambda: self.load_calibration(self.current_tool))
+            button.grid(row=row+2, column=0, sticky="w", pady=4)
+            self.inputs.append((button, "normal"))
+            ttk.Label(form, text="Copy the final JSON output from CalibrateEOMVoltages.ipynb.\n"
+                                "Fills this form only; imported physical labels remain provisional.",
+                      wraplength=510).grid(row=row+1, column=0, columnspan=2, sticky="w")
+        def workflow_button(text, command):
+            button = ttk.Button(self.workflowbar, text=text, command=command)
+            button.pack(anchor="w", pady=2)
+            self.inputs.append((button, "normal"))
+        if self.current_tool == sweep.TOOL:
+            workflow_button("Analyze last completed sweep →", self.open_calibration_analysis)
+        elif self.current_tool == calibration.TOOL:
+            for target in ("Pulsed polarization", bb84.ORDERED, bb84.RANDOM):
+                workflow_button(f"Load last completed result into {display_name(target)} →",
+                                lambda t=target: self.load_calibration(t))
+        elif (self.current_tool, "folder") in recent_data.INPUTS:
+            workflow_button("Analyze latest recording →", self.analyze_latest)
         self._last_source = self.vars.get("source").get() if "source" in self.vars else None
-        self._external_hz = self.vars.get("laser-hz").get() if self._last_source == "NI external" else "500000"
+        self._external_hz = self.vars["laser-hz"].get() if self._last_source == "NI external" and "laser-hz" in self.vars else "500000"
         # Physical rewiring confirmations must be renewed each time this form is opened.
         if "internal-ready" in self.vars:
             self.vars["internal-ready"].set("No")
         if "manual-ready" in self.vars:
             self.vars["manual-ready"].set("No")
-        for key in ("source", "timing-profile", "sync-mode", "ch1-mode", "ch2-mode", "gate", "alice-labels"):
+        for key in ("action", "source", "timing-profile", "sync-mode", "ch1-mode", "ch2-mode", "gate", "alice-labels", "control-eoms"):
             if key in self.vars:
                 self.vars[key].trace_add("write", lambda *_: self.controls_changed())
         self.controls_changed()
+
+    def paste_calibration(self):
+        if self.running:
+            return
+        from calibration_transfer import parse
+        try:
+            data = parse(self.root.clipboard_get())
+            self.apply_calibration(data)
+        except (ValueError, TypeError, tk.TclError) as exc:
+            self.write(f"Calibration not pasted: {exc}\n")
+
+    def apply_calibration(self, data):
+        from calibration_transfer import form_updates
+        updates = form_updates(data, self.current_tool == "Pulsed polarization")
+        if any(key not in self.vars for key in updates):
+            raise ValueError("Select Polarization matrix or one of the BB84 tools before loading.")
+        for key, value in updates.items():
+            self.vars[key].set(value)
+        self.remember()
+        self.write("Loaded six EOM target voltages into this form; no hardware changed.\n"
+                   f"Source: {data.get('source', 'unspecified')}\n"
+                   f"Held-out check passed: {data.get('heldout_count_check_passed', False)}; "
+                   f"independent check passed: {data.get('independent_count_check_passed', False)}.\n"
+                   "H/R/V/L names remain provisional; detector assignments/label confirmation reset.\n")
+
+    def load_calibration(self, target):
+        if self.running:
+            return
+        from calibration_transfer import parse
+        try:
+            path = recent_data.latest("calibration", self.settings, ROOT.parent)
+            if path is None:
+                raise ValueError("No completed app calibration found. Run EOM calibration analysis first.")
+            data = parse(path.read_text(encoding="utf-8"))
+            if self.current_tool != target:
+                self.tool.set(display_name(target))
+                self.change_tool()
+            self.apply_calibration(data)
+            self.write(f"Loaded calibration file: {path}\n")
+        except (ValueError, OSError, TypeError) as exc:
+            self.write(f"Calibration not loaded: {exc}\n")
+
+    def use_recent_input(self, key):
+        if self.running:
+            return False
+        self.remember()
+        family = recent_data.INPUTS[(self.current_tool, key)]
+        path = recent_data.latest(family, self.settings, ROOT.parent)
+        if path is None:
+            self.write("No compatible completed recording found; Browse starts in its data directory.\n")
+            return False
+        self.vars[key].set(str(path))
+        self.remember()
+        self.write(f"Selected {path}\n")
+        return True
+
+    def open_calibration_analysis(self):
+        if self.running:
+            return
+        self.tool.set(calibration.TOOL)
+        self.change_tool()
+        self.use_recent_input("csv")
+
+    def analyze_latest(self):
+        if self.use_recent_input("folder"):
+            if "action" in self.vars:
+                self.vars["action"].set("Analyze saved run")
+            self.remember()
+            self.write("Review analysis settings, then click Run.\n")
 
     def controls_changed(self):
         if self.running:
@@ -496,6 +636,28 @@ class App:
             if key in self.fields:
                 widget, normal = self.fields[key]
                 widget.configure(state=normal if allowed else "disabled")
+        if self.current_tool in bb84.MODES:
+            for key in self.fields:
+                enable(key, True)
+        if self.current_tool == LIVE_COUNTS_TOOL:
+            source = self.vars["source"].get()
+            if source != self._last_source:
+                self.vars["manual-ready"].set("No")
+                self._last_source = source
+            enable("frequency-hz", source == "NI external")
+            enable("high-ns", source == "NI external")
+            enable("manual-ready", source != "NI external")
+        if self.current_tool == g2.TOOL:
+            source = self.vars["source"].get()
+            if source != self._last_source:
+                self.vars["manual-ready"].set("No")
+                self._last_source = source
+            enable("laser-hz", source in (g2.NI, g2.MANUAL))
+            enable("high-ns", source == g2.NI)
+            enable("manual-ready", source != g2.NI)
+            enable("binning", source != g2.CW)
+            for key in ("eom1-v", "eom2-v"):
+                enable(key, self.vars["control-eoms"].get() == "Yes")
         if self.current_tool == sweep.TOOL:
             source = self.vars["source"].get()
             if source != self._last_source:
@@ -540,9 +702,18 @@ class App:
         if "alice-labels" in self.vars:
             for i in range(4):
                 enable(f"alice-{i}-state", self.vars["alice-labels"].get() == "Assigned H/V/R/L")
+        if self.current_tool in bb84.MODES:
+            analyzing = self.vars["action"].get() == "Analyze saved run"
+            for key in self.fields:
+                # Keep inactive workflow settings visible, but make it clear
+                # that analysis reads saved acquisition parameters, not these.
+                if key != "action" and ((field_group(key) == "Analysis") != analyzing):
+                    enable(key, False)
 
-    def browse(self, var, kind):
-        path = filedialog.askdirectory(parent=self.root) if kind == "directory" else filedialog.askopenfilename(parent=self.root)
+    def browse(self, var, kind, key=""):
+        self.remember()
+        options = recent_data.dialog_options(var.get(), kind, key, self.settings, ROOT.parent, self.current_tool)
+        path = filedialog.askdirectory(parent=self.root, **options) if kind == "directory" else filedialog.askopenfilename(parent=self.root, **options)
         if path:
             var.set(path)
 
@@ -584,6 +755,8 @@ class App:
                 self.write(f"Could not open live window; hardware not started: {exc}\n")
                 return
         self.last_folder = self.last_plot = None
+        self.last_plots = []
+        self.run_artifacts = {}
         self.run_button.configure(state="disabled")
         self.selector.configure(state="disabled")
         for widget, _state in self.inputs:
@@ -595,7 +768,7 @@ class App:
             self.apply_clock_button.configure(state="normal")
         self.folder_button.configure(state="disabled")
         self.plot_button.configure(state="disabled")
-        can_stop = values.get("action") in ("Run sweep", "Record", "Prepare sequence only", "Output clock", "Output clock + EOM", "Output timing pattern", "Start live controls")
+        can_stop = values.get("action") in ("Analyze sweep", "Run sweep", "Record", "Prepare sequence only", "Output clock", "Output clock + EOM", "Output timing pattern", "Start live controls") or (tool == g2.TOOL and values.get("action") == "Analyze saved run")
         self.stop_button.configure(state="normal" if can_stop else "disabled")
         self.status.set("Running…")
         self.write(f"\n--- {tool}: {values.get('action', 'Analyze')} ---\n")
@@ -654,25 +827,34 @@ class App:
                     self.write(value)
                     # Backends print these absolute paths after flushing/saving artifacts.
                     for line in value.splitlines():
-                        for prefix in ("Acquisition record: ", "Run record: ", "Preview image: ", "Lifetime plot: "):
+                        for prefix in ("Acquisition record: ", "Run record: ", "Preview image: ", "Lifetime plot: ", "Arrival histograms: ", "CSV: ", "Calibration result: ", "Calibration transfer: "):
                             if line.startswith(prefix):
                                 path = Path(line[len(prefix):])
                                 if path.exists():
                                     self.last_folder = path.parent
+                                    self.track_artifact(prefix, path)
                                     if path.suffix.lower() == ".png":
                                         self.last_plot = path
+                                        if path not in self.last_plots:
+                                            self.last_plots.append(path)
                 elif kind == "alignment":
                     if self.live_counts is not None and self.live_counts.exists():
                         self.live_counts.handle(value)
                     if value["kind"] == "applied" and self.current_tool == LIVE_COUNTS_TOOL:
-                        for key, applied in (("eom1-v", value["eom"]["target_eom_v"][0]),
-                                             ("eom2-v", value["eom"]["target_eom_v"][1]),
-                                             ("frequency-hz", value["clock"]["requested_frequency_hz"]),
-                                             ("high-ns", value["clock"]["requested_high_ns"])):
+                        updates = [("eom1-v", value["eom"]["target_eom_v"][0]),
+                                   ("eom2-v", value["eom"]["target_eom_v"][1])]
+                        if value["clock"] is not None:
+                            updates.extend((("frequency-hz", value["clock"]["requested_frequency_hz"]),
+                                            ("high-ns", value["clock"]["requested_high_ns"])))
+                        for key, applied in updates:
                             self.vars[key].set(f"{applied:g}")
                         self.remember()
                 else:
                     self.running = False
+                    if value == 0:
+                        for family, path in self.run_artifacts.items():
+                            recent_data.remember(self.settings, family, path)
+                        self.remember()
                     if self.live_counts is not None and self.live_counts.exists():
                         self.live_counts.finish(value)
                     self.apply_eom_button.configure(state="disabled")
@@ -687,7 +869,7 @@ class App:
                     self.folder_button.configure(state="normal" if self.last_folder else "disabled")
                     self.plot_button.configure(state="normal" if self.last_plot else "disabled")
                     if value == 0 and self.last_plot and not self.closing:
-                        self.open_plot()
+                        self.open_plots()
         except queue.Empty:
             pass
         if self.live_counts is not None and self.live_counts.exists():
@@ -705,14 +887,31 @@ class App:
         if self.last_folder:
             os.startfile(str(self.last_folder))
 
-    def open_plot(self):
-        if not self.last_plot:
+    def track_artifact(self, prefix, path):
+        if prefix == "CSV: " and self.current_tool == sweep.TOOL:
+            self.run_artifacts["sweep"] = path
+        elif prefix == "Calibration transfer: ":
+            self.run_artifacts["calibration"] = path
+        elif prefix in ("Run record: ", "Acquisition record: "):
+            family = {"Pulsed polarization": "polarization", g2.TOOL: "g2",
+                      "CH1 lifetime": "lifetime", "G2 acquisition": "preview",
+                      bb84.ORDERED: "bb84_ordered", bb84.RANDOM: "bb84_random"}.get(self.current_tool)
+            if family and path.name in ("metadata.json", "session.json"):
+                self.run_artifacts[family] = path.parent
+
+    def open_plots(self):
+        for path in self.last_plots:
+            self.open_plot(path)
+
+    def open_plot(self, path=None):
+        path = path or self.last_plot
+        if not path:
             return
         try:
             from PIL import Image, ImageTk
             window = tk.Toplevel(self.root)
-            window.title(str(self.last_plot))
-            with Image.open(self.last_plot) as original:
+            window.title(str(path))
+            with Image.open(path) as original:
                 picture = original.copy()
             picture.thumbnail((min(1100, self.root.winfo_screenwidth()-100),
                                min(850, self.root.winfo_screenheight()-150)))
@@ -721,7 +920,7 @@ class App:
             label.image = photo
             label.pack()
         except Exception as exc:
-            self.write(f"Plot is saved at {self.last_plot}, but display failed: {exc}\n")
+            self.write(f"Plot is saved at {path}, but display failed: {exc}\n")
 
     def close(self):
         self.remember()

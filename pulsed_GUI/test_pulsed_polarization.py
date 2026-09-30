@@ -16,6 +16,7 @@ import numpy as np
 import gui_app
 import ph330_acquire as acq
 import polarization_analysis as analysis
+import polarization_figures as figures
 import pulsed_polarization as experiment
 from test_laser_clock_eom import FakeDAQ
 from test_ph330_acquire import FakeAPI, config as ph_config
@@ -58,6 +59,35 @@ def session_fixture(folder, total=8, dark=False):
 
 
 class PolarizationTests(unittest.TestCase):
+    def test_arrival_zoom_preserves_counts_and_scales_to_visible_bins(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = Path(tmp)
+            session_fixture(folder)
+            result = analysis.summarize(folder)
+            result["histograms"][:] = 0
+            result["histograms"][:, :, 10] = 10000
+            result["histograms"][:, :, 52] = 4
+            before = result["histograms"].copy()
+            captured = []
+            def inspect_figure(fig, path, **kwargs):
+                if path.stem == "arrival_histograms":
+                    captured.append((fig.axes[0].get_xlim(),fig.axes[0].get_ylim(),fig.axes[0].get_xticks()))
+            with patch("matplotlib.figure.Figure.savefig", inspect_figure):
+                figures.render(result,folder,1,60,plot_start_ns=49)
+            for xlim, ylim, ticks in captured:
+                self.assertEqual(xlim,(49,60))
+                self.assertAlmostEqual(ylim[1],4.32)
+                self.assertTrue(np.all((ticks>=49)&(ticks<=60)))
+            np.testing.assert_array_equal(result["histograms"],before)
+            for start, end in [(-1,60),(60,60),(61,60),(float("nan"),60),(3000,0)]:
+                with self.subTest(start=start,end=end),self.assertRaises(ValueError):
+                    figures.arrival_limits(result,start,end)
+            options = experiment.analysis_options(dict(form(), **{"plot-start-ns":"49","plot-stop-ns":"60"}))
+            self.assertEqual(options["plot_start_ns"],49)
+            with contextlib.redirect_stdout(io.StringIO()),patch.object(analysis,"plots"):
+                output=analysis.analyze(folder,plot_start_ns=49,plot_stop_ns=60)
+            self.assertEqual(json.loads((output/"analysis.json").read_text())["plot_xlim_ns"],[49,60])
+
     def test_gui_check_settings_and_analyze_do_not_open_hardware(self):
         with patch.object(experiment, "record") as record, patch.object(experiment, "PH330") as hardware, \
                 contextlib.redirect_stdout(io.StringIO()):
@@ -75,6 +105,8 @@ class PolarizationTests(unittest.TestCase):
         cfg = experiment.settings(values)
         self.assertEqual(list(cfg["alice"]), ["S0", "S1", "S2", "S3"])
         values["alice-labels"] = "Assigned H/V/R/L"
+        self.assertEqual(experiment.settings(values)["alice"]["H"], -152)
+        values["alice-1-state"] = "H"  # Duplicate physical labels are invalid.
         with self.assertRaises(ValueError):
             experiment.settings(values)
         for i, label in enumerate(("V", "L", "H", "R")):
@@ -167,15 +199,86 @@ class PolarizationTests(unittest.TestCase):
             folder = Path(tmp)
             session_fixture(folder)
             before = (folder / "raw_0" / "events.t3raw").read_bytes()
-            first = analysis.analyze(folder, rebin=16, plot_stop_ns=100)
-            second = analysis.analyze(folder, gate=[10, 11], plot_stop_ns=100)
+            first = analysis.analyze(folder, rebin=16, plot_stop_ns=100, plot_dpi=100)
+            second = analysis.analyze(folder, gate=[10, 11], plot_stop_ns=100, plot_dpi=200)
+            from PIL import Image
+            with Image.open(first / "arrival_histograms.png") as low, Image.open(second / "arrival_histograms.png") as high:
+                self.assertEqual(high.size, tuple(2*v for v in low.size))
             self.assertNotEqual(first, second)
             for output in (first, second):
                 self.assertTrue((output / "polarization_matrix.png").exists())
                 self.assertTrue((output / "arrival_histograms.png").exists())
+                for name in ("arrival_histograms", "polarization_matrix"):
+                    for extension in ("pdf", "svg"):
+                        self.assertTrue((output / f"{name}.{extension}").is_file())
                 self.assertTrue((output / "arrival_histograms.csv").exists())
                 self.assertEqual(json.loads((output / "analysis.json").read_text())["status"], "completed")
             self.assertEqual(before, (folder / "raw_0" / "events.t3raw").read_bytes())
+
+    def test_diagonal_layout_respects_detector_mapping_not_measured_brightness(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = Path(tmp)
+            session_fixture(folder)
+            result = analysis.summarize(folder)
+            original = result["probabilities"].copy()
+            layout = figures.layout(result)
+            # Fixture maps HV/CH1 to V, so stored HV columns are already CH2/CH1.
+            self.assertEqual(layout["rows"], [0, 2, 1, 3])
+            self.assertEqual(layout["columns"], [0, 1, 3, 2])
+            np.testing.assert_array_equal(layout["expected"],
+                [[1, 0, .5, .5], [0, 1, .5, .5], [.5, .5, 1, 0], [.5, .5, 0, 1]])
+            result["probabilities"] = 1 - original
+            self.assertEqual(figures.layout(result), layout)
+            recorded = figures.layout(result, diagonal=False)
+            self.assertEqual(recorded["rows"], [0, 1, 2, 3])
+            self.assertEqual(recorded["columns"], [0, 1, 2, 3])
+
+    def test_physical_layout_requires_known_detector_outcomes(self):
+        result = {"states": ["R", "H", "L", "V"],
+                  "session": {"settings": {"mapping": {"HV": "V", "RL": "R"}}}}
+        layout = figures.layout(result)
+        self.assertEqual(layout["rows"], [1, 3, 0, 2])
+        self.assertEqual(layout["columns"], [0, 1, 2, 3])
+        np.testing.assert_array_equal(np.diag(layout["expected"]), np.ones(4))
+        result["session"]["settings"]["mapping"]["RL"] = "Unassigned"
+        self.assertFalse(figures.layout(result)["diagonal"])
+
+    def test_renamed_states_keep_imported_roles_only_when_all_voltages_match(self):
+        from calibration_transfer import payload
+        candidate = payload(dict(alice_v=[-159, -69, 37, 151], bob_v=[45, -53]), "sweep.csv")
+        cfg = dict(alice={"H":-159,"V":37,"R":-69,"L":151},bob={"HV":45,"RL":-53},
+                   mapping={"HV":"Unassigned","RL":"Unassigned"},
+                   calibration_transfer={"imported_candidate":candidate,"current_voltages_match_import":True})
+        result = dict(states=["H","V","R","L"],session={"settings":cfg})
+        layout=figures.layout(result)
+        self.assertTrue(layout["calibration_derived"])
+        self.assertEqual(layout["rows"],[0,1,2,3])
+        self.assertEqual(layout["columns"],[1,0,3,2])
+        np.testing.assert_array_equal(np.diag(layout["expected"]),np.ones(4))
+        # Matching saved voltages, not a stale Boolean or display names, is decisive.
+        cfg["alice"]["H"] = -158
+        self.assertFalse(figures.layout(result)["diagonal"])
+        cfg["alice"]["H"] = -159
+        cfg["bob"]["HV"] = 46
+        self.assertFalse(figures.layout(result)["diagonal"])
+        cfg["bob"]["HV"] = 45
+        cfg["calibration_transfer"]["imported_candidate"]["schema"] = "unknown"
+        self.assertFalse(figures.layout(result)["diagonal"])
+
+    def test_native_binning_default_migrates_once(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.object(gui_app,"SETTINGS",Path(tmp)/"gui.json"):
+            gui_app.SETTINGS.write_text(json.dumps({"Pulsed polarization":{"rebin":"16"}}))
+            root=tk.Tk();root.withdraw()
+            app=gui_app.App(root,"Pulsed polarization")
+            self.assertEqual(app.vars["rebin"].get(),"1")
+            app.vars["rebin"].set("4")
+            app.close()
+            root=tk.Tk();root.withdraw()
+            app=gui_app.App(root,"Pulsed polarization")
+            try:
+                self.assertEqual(app.vars["rebin"].get(),"4")
+            finally:
+                app.close()
 
     def test_order_cleanup_and_continuous_clock(self):
         for internal in (False, True):
@@ -255,7 +358,8 @@ class PolarizationTests(unittest.TestCase):
                 self.assertEqual(app.status.get(), "Complete", app.log.get("1.0", "end"))
                 self.assertEqual(app.last_plot.name, "polarization_matrix.png")
                 self.assertEqual(app.last_folder, folder)
-                self.assertTrue(any(isinstance(c, tk.Toplevel) for c in root.winfo_children()))
+                self.assertEqual({p.name for p in app.last_plots}, {"arrival_histograms.png", "polarization_matrix.png"})
+                self.assertEqual(sum(isinstance(c, tk.Toplevel) for c in root.winfo_children()), 2)
             finally:
                 app.close()
 

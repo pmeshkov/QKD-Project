@@ -1,0 +1,2 @@
+{"kind": "started", "host_utc": "2026-09-29T17:24:15.754262+00:00", "elapsed_s": 5.8362198999966495, "epoch": 0, "clock": null, "eom": {"target_eom_v": [0.0, 0.0], "daq_v": [-0.0, -0.0], "assumed_hv_gain": -20.0}}
+{"kind": "input_status", "host_utc": "2026-09-29T17:24:15.957368+00:00", "elapsed_s": 6.039322500000708, "sync_hz": 0, "sync_matches": null, "warnings": 0, "warnings_text": ""}

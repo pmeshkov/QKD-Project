@@ -10,6 +10,8 @@ from datetime import datetime, timezone
 import json
 import math
 from pathlib import Path
+from figure_options import FIELD as DPI_FIELD, validated_dpi
+from measurement_metadata import FORM as MEASUREMENT_FORM, read as measurement_context
 import threading
 import time
 
@@ -45,6 +47,8 @@ FORM = [
     *[item for item in POL_FORM if item[0] in ("dll", "device-index", "serial", "binning")
       or item[0].startswith(("sync-", "ch1-", "ch2-"))],
     ("output", "Calibration CSV directory", str(DATA), "directory"),
+    DPI_FIELD,
+    *MEASUREMENT_FORM,
     ("note", "Source / power / emitter / calibration notes", "", None),
 ]
 
@@ -92,7 +96,7 @@ def settings(values):
     return dict(source=source, device=device, clock=clock, ph330=config, dll=values["dll"],
                 mode=2 if source == CW else 3, duration_ms=duration_ms,
                 settle_s=number("settle-ms", 1, 60000) / 1000,
-                output=values["output"], note=values["note"], points=points,
+                output=values["output"], note=values["note"], measurement=measurement_context(values), points=points, plot_dpi=validated_dpi(values.get("plot-dpi", "300")),
                 voltage_min=-200., voltage_max=200.,
                 minimum_scan_seconds=points**2 * (duration_ms / 1000 + float(values["settle-ms"]) / 1000))
 
@@ -165,7 +169,7 @@ def plot_completed(csv_path, cfg):
         axis.set(title=f"{name} measured rate", xlabel="Alice target (V)", ylabel="Bob target (V)")
         fig.colorbar(graph, ax=axis, label="Counts/s")
     image = csv_path.with_suffix(".png")
-    fig.savefig(image, dpi=150)
+    fig.savefig(image, dpi=cfg.get("plot_dpi", 300))
     return image
 
 
@@ -180,13 +184,14 @@ def run(cfg, stop, *, daq=None, system=None, constants=None, api=None):
     device = system.devices[cfg["device"]]
     if device.product_type != "USB-6351" or device.dev_is_simulated:
         raise RuntimeError("Sweep requires a physical USB-6351.")
-    folder = Path(cfg["output"])
-    folder.mkdir(parents=True, exist_ok=True)
     run_id = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
+    folder = Path(cfg["output"]) / run_id
+    folder.mkdir(parents=True, exist_ok=False)
     partial = folder / f"{run_id}_Detector_Traces.partial.csv"
     completed = folder / f"{run_id}_Detector_Traces.csv"
     meta = folder / f"{run_id}_sweep.json"
     record = dict(schema="qkd-eom-picoharp-sweep-v1", settings=cfg, status="preparing", complete=False,
+                  layout="one-folder-per-sweep-v1",
                   rows=0, expected_rows=cfg["points"]**2, csv=partial.name, cleanup_errors=[],
                   raw_counts_meaning="Cumulative detected photons in completed acquisition windows; excludes settling/gaps.",
                   rate_meaning="Actual photons per channel divided by PicoHarp measured dwell seconds.",
@@ -297,7 +302,7 @@ def run(cfg, stop, *, daq=None, system=None, constants=None, api=None):
         save_json(meta, record)
         print(f"CSV: {(folder / record['csv']).resolve()}", flush=True)
         print(f"Run record: {meta.resolve()}", flush=True)
-        print(f"Complete CSV is ready for the notebook; set its N = {cfg['points']}." if record["complete"] else
+        print("Complete CSV is ready: click Analyze last completed sweep in the app." if record["complete"] else
               "Sweep incomplete: do not load its partial CSV into the fixed-grid notebook.", flush=True)
     if record["complete"]:
         try:
@@ -314,7 +319,7 @@ def main(values, stop_event=None):
         if values["action"] == "Check settings":
             print(json.dumps(cfg, indent=2))
             print(f"N = {cfg['points']}: {cfg['points']**2} settings; at least {cfg['minimum_scan_seconds']/60:.1f} minutes plus acquisition overhead. "
-                  f"Set notebook N = {cfg['points']}. No hardware accessed.")
+                  "Calibration analysis reads the grid size automatically. No hardware accessed.")
             return 0
         if values["action"] != "Run sweep":
             raise ValueError("Unknown action.")

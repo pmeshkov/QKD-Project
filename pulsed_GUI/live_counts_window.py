@@ -19,6 +19,7 @@ class LiveCountsWindow:
         self.window.geometry("1100x790")
         self.window.minsize(900, 650)
         self.cfg, self.commands, self.on_stop = cfg, commands, on_stop
+        self.clock_enabled = cfg["clock"] is not None
         self.active, self.stopping, self.close_requested, self.pending = True, False, False, False
         self.epoch = -1
         self.history = deque(maxlen=6002)
@@ -50,7 +51,8 @@ class LiveCountsWindow:
         controls.pack(fill="x")
         self.vars, self.entries = {}, []
         initial = {"eom1-v": cfg["eom"]["target_eom_v"][0], "eom2-v": cfg["eom"]["target_eom_v"][1],
-                   "frequency-hz": cfg["clock"]["requested_frequency_hz"], "high-ns": cfg["clock"]["requested_high_ns"]}
+                   "frequency-hz": cfg["clock"]["requested_frequency_hz"] if self.clock_enabled else cfg["expected_sync_hz"] or 0,
+                   "high-ns": cfg["clock"]["requested_high_ns"] if self.clock_enabled else 0}
         for col, (key, label) in enumerate((("eom1-v", "Alice / AO0 target (V)"), ("eom2-v", "Bob / AO1 target (V)"),
                                            ("frequency-hz", "Laser rate (Hz)"), ("high-ns", "Trigger high time (ns)"))):
             ttk.Label(controls, text=label).grid(row=0, column=col, sticky="w", padx=5)
@@ -73,8 +75,10 @@ class LiveCountsWindow:
         self.stop_button.pack(side="right")
         for variable in (self.applied, self.health, self.status):
             ttk.Label(self.window, textvariable=variable, wraplength=1050, padding=(12, 3)).pack(fill="x")
-        ttk.Label(self.window, text="Manual alignment only. DAQ = −target/20; ±200 V targets. "
-                  "Clock changes interrupt the pulse train. Stop returns AO0/AO1 to 0 V.", padding=(12, 6)).pack(anchor="w")
+        ttk.Label(self.window, text=f"Source: {cfg['source']}. DAQ = −target/20; ±200 V targets. Stop returns AO0/AO1 to 0 V. "
+                  + ("Clock changes interrupt the pulse train." if self.clock_enabled else
+                     "Laser stays under manual control. Stop and restart this tool to change source mode."),
+                  wraplength=1050, padding=(12, 6)).pack(anchor="w")
         self.window.protocol("WM_DELETE_WINDOW", self.request_close)
         self.draw()
 
@@ -85,9 +89,15 @@ class LiveCountsWindow:
         state = "normal" if enabled and self.active and not self.stopping else "disabled"
         for widget in [*self.entries, self.eom_button, self.clock_button]:
             widget.configure(state=state)
+        if not self.clock_enabled:
+            for widget in [*self.entries[2:], self.clock_button]:
+                widget.configure(state="disabled")
 
     def submit(self, kind):
         if not self.active or self.stopping or self.pending or self.epoch < 0:
+            return
+        if kind == "clock" and not self.clock_enabled:
+            self.status.set("NI clock disabled; laser mode is set manually.")
             return
         try:
             plan = eom_plan(self.vars["eom1-v"].get(), self.vars["eom2-v"].get()) if kind == "eom" else live_clock(
@@ -112,8 +122,10 @@ class LiveCountsWindow:
             for var in self.cards.values():
                 var.set("—")
             clock, eom = event["clock"], event["eom"]
+            clock_text = (f"NI clock {clock['realized_nominal_frequency_hz']:,.3f} Hz | pulse {clock['realized_high_ns']:g} ns"
+                          if clock else f"{self.cfg['source']} (manual; PFI12 unused)")
             self.applied.set(f"Applied commands: Alice {eom['target_eom_v'][0]:g} V | Bob {eom['target_eom_v'][1]:g} V | "
-                             f"NI clock {clock['realized_nominal_frequency_hz']:,.3f} Hz | pulse {clock['realized_high_ns']:g} ns")
+                             + clock_text)
             self.health.set("Waiting for fresh rate-meter readings after output change…")
             self.status.set("Running. Edit a value and press Enter or click Apply.")
             self.pending = False
@@ -145,7 +157,9 @@ class LiveCountsWindow:
             self.history.popleft()
         for label, value in (("CH1", ch1), ("CH2", ch2), ("SUM", ch1 + ch2), ("SYNC", reading["sync_hz"])):
             self.cards[label].set(f"{value:,.1f}" if label != "SYNC" else f"{value:,}")
-        health = "SYNC within 5% of commanded rate." if reading["sync_matches"] else "SYNC MISMATCH — check BDL triggering and SYNC input."
+        health = ("CW: periodic SYNC is not required; detector meters remain active." if reading["sync_matches"] is None else
+                  "SYNC within 5% of selected rate." if reading["sync_matches"] else
+                  "SYNC MISMATCH — check selected laser mode and SYNC input.")
         if reading["warnings"]:
             health += " PicoHarp: " + (reading["warnings_text"] or f"warning bits {reading['warnings']:#x}")
         self.health.set(health)

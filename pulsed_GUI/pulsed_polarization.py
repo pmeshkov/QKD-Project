@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 import json
 import math
 from pathlib import Path
+from measurement_metadata import FORM as MEASUREMENT_FORM, read as measurement_context
 import threading
 
 from laser_clock import clock_plan
@@ -14,6 +15,8 @@ from laser_clock_eom import eom_plan, prepared_clock
 from ph330 import PH330, DEFAULT_DLL
 import ph330_acquire as acquisition
 from record_io import save_json
+from figure_options import FIELD as DPI_FIELD, validated_dpi
+from calibration_transfer import context as calibration_context
 
 ROOT = Path(__file__).resolve().parent
 STATES = ("H", "V", "R", "L")
@@ -40,7 +43,7 @@ FORM = [
     ("alice-labels", "Alice labels", "Voltage index only", ["Voltage index only", "Assigned H/V/R/L"]),
     *[item for i, voltage in enumerate(("-152", "-50.87", "50.90", "152.69"))
       for item in ((f"alice-{i}-v", f"Alice notebook entry {i}: EOM target (V)", voltage, None),
-                   (f"alice-{i}-state", f"Entry {i} physical state (only if Assigned H/V/R/L)", "", list(STATES)))],
+                   (f"alice-{i}-state", f"Entry {i} physical state (only if Assigned H/V/R/L)", ("H", "R", "V", "L")[i], list(STATES)))],
     ("bob-hv-v", "Bob H/V basis target (V; notebook entry 0 candidate)", "47.52", None),
     ("bob-rl-v", "Bob R/L basis target (V; notebook entry 1 candidate)", "-47.44", None),
     ("hv-ch1", "H/V basis: CH1 outcome (CH2 is the other outcome)", "Unassigned", ["Unassigned", "H", "V"]),
@@ -59,10 +62,16 @@ FORM = [
     ("gate", "Optional gate for analysis ONLY", "No", ["No", "Yes"]),
     ("gate-start-ns", "Gate start (ns after SYNC, inclusive)", "0", None),
     ("gate-stop-ns", "Gate end (ns after SYNC, exclusive)", "100", None),
-    ("rebin", "Native bins combined for display (1, 2, 4, 8, 16, ...)", "16", None),
-    ("plot-stop-ns", "Plot end after SYNC (ns; 0 = full laser period)", "0", None),
+    ("rebin", "Native bins per plotted bin (1 = finest; 64 ps at binning 6)", "1", None),
+    ("plot-start-ns", "Arrival plots: X-axis start (ns after SYNC)", "0", None),
+    ("plot-stop-ns", "Arrival plots: X-axis end (ns; 0 = full laser period)", "0", None),
+    ("plot-y-max", "Arrival plots: Y-axis maximum (counts/bin; 0 = automatic)", "0", None),
+    ("plot-order", "Figure order (uses saved calibration roles / detector assignments)", "Expected unity on diagonal", ["Expected unity on diagonal", "Recorded order"]),
+    ("plot-labels", "Index-state figure labels (physical assignments still unverified)", "Provisional H/R/V/L", ["Provisional H/R/V/L", "Saved state labels"]),
+    DPI_FIELD,
     ("output", "Polarization data directory", str(ROOT.parent / "data" / "polarization"), "directory"),
     ("folder", "Session folder with session.json (Analyze only)", "", "directory"),
+    *MEASUREMENT_FORM,
     ("note", "Calibration source / emitter / optical settings / notes", "", None),
 ]
 
@@ -75,6 +84,12 @@ def number(values, key, low, high):
 
 
 def analysis_options(values):
+    label_mode = values.get("plot-labels", "Provisional H/R/V/L")
+    if label_mode not in ("Provisional H/R/V/L", "Saved state labels"):
+        raise ValueError("Select the figure label convention.")
+    plot_order = values.get("plot-order", "Expected unity on diagonal")
+    if plot_order not in ("Expected unity on diagonal", "Recorded order"):
+        raise ValueError("Select the figure order.")
     rebin = int(values["rebin"])
     if rebin <= 0 or 32768 % rebin:
         raise ValueError("Display rebin must be a positive divisor of 32768.")
@@ -83,7 +98,15 @@ def analysis_options(values):
         gate = [number(values, "gate-start-ns", 0, 1e6), number(values, "gate-stop-ns", 0, 1e6)]
         if gate[1] <= gate[0]:
             raise ValueError("Gate end must exceed gate start.")
-    return dict(gate=gate, rebin=rebin, plot_stop_ns=number(values, "plot-stop-ns", 0, 1e6))
+    start = number({"plot-start-ns": values.get("plot-start-ns", "0")}, "plot-start-ns", 0, 1e6)
+    end = number(values, "plot-stop-ns", 0, 1e6)
+    if end and start >= end:
+        raise ValueError("Arrival plot end must exceed start (or use 0 for the full period).")
+    return dict(gate=gate, rebin=rebin, plot_stop_ns=end, plot_start_ns=start,
+                plot_dpi=validated_dpi(values.get("plot-dpi", "300")),
+                plot_provisional_labels=label_mode == "Provisional H/R/V/L",
+                plot_diagonal=plot_order == "Expected unity on diagonal",
+                plot_y_max=number({"plot-y-max": values.get("plot-y-max", "0")}, "plot-y-max", 0, 1e15))
 
 
 def settings(values):
@@ -142,7 +165,8 @@ def settings(values):
                 seconds=number(values, "seconds", 0.1, 360000),
                 settle_s=number(values, "settle-ms", 1, 60000) / 1000,
                 warmup_s=number(values, "warmup-s", 0, 3600), ph330=ph,
-                dll=values["dll"], note=values["note"], analysis=options,
+                dll=values["dll"], note=values["note"], measurement=measurement_context(values), analysis=options,
+                calibration_transfer=calibration_context(values),
                 hv_gain=-20, ao_channels=["ao0", "ao1"], exact_excitation_count=None)
 
 

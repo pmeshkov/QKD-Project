@@ -149,83 +149,42 @@ def write_matrix(path, matrix, labels, states):
             writer.writerow([state, *[float(v) if math.isfinite(v) else "" for v in row]])
 
 
-def plots(result, output, rebin, plot_stop_ns):
-    from matplotlib.figure import Figure
-    from matplotlib.backends.backend_agg import FigureCanvasAgg
-
-    complete = result["completed_settings"]
-    suffix = f"{complete}/8 settings; session {result['session']['status']}"
-    gate = result["gate"]
-    gate_text = "Ungated" if gate is None else f"Gate [{gate[0]:g}, {gate[1]:g}) ns"
-    fig = Figure(figsize=(13, 9), layout="constrained")
-    FigureCanvasAgg(fig)
-    axes = fig.subplots(4, 4, sharex=True, sharey=True)
-    edges = result["edges"][::rebin]
-    period = min(row["sync_period_ns"] for row in result["rows"])
-    limit = min(plot_stop_ns, result["edges"][-1]) if plot_stop_ns else min(period, result["edges"][-1])
-    for row, state in enumerate(result["states"]):
-        for col, label in enumerate(result["labels"]):
-            ax = axes[row, col]
-            if result["available"][row, col]:
-                hist = result["histograms"][row, col].reshape(-1, rebin).sum(axis=1)
-                ax.stairs(hist, edges, color="#1b5f98", linewidth=1)
-            else:
-                ax.text(0.5, 0.5, "Not acquired", transform=ax.transAxes, ha="center")
-            if gate:
-                ax.axvspan(*gate, color="#e49b22", alpha=0.18)
-            if row == 0:
-                ax.set_title(label)
-            if col == 0:
-                ax.set_ylabel(f"Alice {state}\nCounts / {edges[1] - edges[0]:g} ns")
-            if row == 3:
-                ax.set_xlabel("Arrival after SYNC (ns)")
-            ax.set_xlim(0, limit)
-            ax.set_ylim(bottom=0)
-            ax.grid(alpha=0.15)
-    fig.suptitle(f"Static polarization: all recorded arrival histograms\n{suffix}; shading = analysis gate only")
-    fig.savefig(output / "arrival_histograms.png", dpi=140)
-    fig.clear()
-
-    fig = Figure(figsize=(12, 5.4), layout="constrained")
-    FigureCanvasAgg(fig)
-    axes = fig.subplots(1, 2)
-    for ax, key, title in zip(axes, ("rates", "probabilities"), ("Detection rate (counts/s)", "Detection probability within each Bob basis")):
-        matrix = result[key]
-        cmap = __import__("matplotlib").colormaps["Blues"].copy()
-        cmap.set_bad("#dedede")
-        kwargs = dict(vmin=0, vmax=1) if key == "probabilities" else dict(vmin=0, vmax=max(1, float(np.nanmax(matrix))))
-        image = ax.imshow(np.ma.masked_invalid(matrix), cmap=cmap, **kwargs)
-        ax.set_xticks(range(4), result["labels"], rotation=20, ha="right")
-        ax.set_yticks(range(4), result["states"])
-        ax.set_xlabel("Bob outcome (two separate basis acquisitions)")
-        ax.set_ylabel("Alice state")
-        ax.set_title(title, fontsize=11)
-        ax.axvline(1.5, color="black", linewidth=1.5)
-        for row in range(4):
-            for col in range(4):
-                v = matrix[row, col]
-                text = "N/A" if not math.isfinite(v) else f"{v:.3f}" if key == "probabilities" else f"{v:.1f}"
-                ax.text(col, row, text, ha="center", va="center", color="white" if math.isfinite(v) and v > kwargs["vmax"] * 0.55 else "black")
-        fig.colorbar(image, ax=ax, shrink=0.75)
-    fig.suptitle(f"Static polarization baseline | {gate_text}\n{suffix}; no background or efficiency correction")
-    fig.savefig(output / "polarization_matrix.png", dpi=150)
-    fig.clear()
+def plots(result, output, rebin, plot_stop_ns, plot_y_max=0, plot_diagonal=True,
+          plot_dpi=300, plot_provisional_labels=True, plot_start_ns=0):
+    from polarization_figures import render
+    render(result, output, rebin, plot_stop_ns, plot_y_max, plot_diagonal, plot_dpi, plot_provisional_labels, plot_start_ns)
 
 
-def analyze(folder, gate=None, rebin=16, plot_stop_ns=0, stop_event=None):
+def analyze(folder, gate=None, rebin=1, plot_stop_ns=0, stop_event=None, plot_y_max=0, plot_diagonal=True,
+            plot_dpi=300, plot_provisional_labels=True, plot_start_ns=0):
     """Each analysis gets its own folder, preserving earlier gate comparisons."""
+    from figure_options import validated_dpi
+    plot_dpi = validated_dpi(plot_dpi)
     if type(rebin) is not int or rebin < 1 or 32768 % rebin:
         raise ValueError("Rebin must divide 32768.")
     if not math.isfinite(plot_stop_ns) or plot_stop_ns < 0:
         raise ValueError("Plot end must be finite and nonnegative.")
+    if not math.isfinite(plot_start_ns) or plot_start_ns < 0 or (plot_stop_ns and plot_start_ns >= plot_stop_ns):
+        raise ValueError("Plot start must be finite, nonnegative, and before the plot end.")
+    if not math.isfinite(plot_y_max) or plot_y_max < 0:
+        raise ValueError("Plot Y-axis maximum must be finite and nonnegative.")
     result = summarize(folder, gate, stop_event)
+    from polarization_figures import layout, arrival_limits
+    xlimits = arrival_limits(result, plot_start_ns, plot_stop_ns)
+    plot_layout = layout(result, plot_diagonal)
     check_stop(stop_event)
     output = Path(folder) / "analysis" / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S_%fZ")
     output.mkdir(parents=True)
     report = dict(schema="qkd-static-polarization-analysis-v1", source_session="../../session.json",
                   status="writing", completed_settings=result["completed_settings"],
                   source_session_status=result["session"]["status"], gate_ns=gate, rebin=rebin,
-                  plot_stop_ns=plot_stop_ns,
+                  native_bin_width_ns=float(result["edges"][1]-result["edges"][0]),
+                  plotted_bin_width_ns=float(result["edges"][1]-result["edges"][0])*rebin,
+                  plot_start_ns=plot_start_ns, plot_stop_ns=plot_stop_ns, plot_xlim_ns=xlimits,
+                  plot_y_max=plot_y_max, plot_layout=plot_layout,
+                  plot_dpi=plot_dpi, plot_provisional_labels=plot_provisional_labels,
+                  provisional_aliases={"S0": "H", "S1": "R", "S2": "V", "S3": "L"} if plot_provisional_labels else {},
+                  figure_formats=["png", "pdf", "svg"], plot_color_meaning="Output channel; not inferred from measured counts.",
                   probability_definition="CH count / (CH1 + CH2) at fixed Alice and Bob setting; zero denominator is null.",
                   gate_definition="Select quantized T3 event times start <= microtime < stop; no interpolation or second channel offset.",
                   raw_gating=False, detector_efficiency_correction=False, background_subtraction=False,
@@ -247,7 +206,7 @@ def analyze(folder, gate=None, rebin=16, plot_stop_ns=0, stop_event=None):
                delimiter=",", fmt=["%.9g"] + ["%.0f"] * 16, comments="",
                header="time_bin_start_ns," + ",".join(f"Alice_{s}_{label}" for s in result["states"] for label in result["labels"]))
     check_stop(stop_event)
-    plots(result, output, rebin, plot_stop_ns)
+    plots(result, output, rebin, plot_stop_ns, plot_y_max, plot_diagonal, plot_dpi, plot_provisional_labels, plot_start_ns)
     report["status"] = "completed"
     path.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n", encoding="utf-8")
     print(f"Arrival histograms: {(output / 'arrival_histograms.png').resolve()}", flush=True)

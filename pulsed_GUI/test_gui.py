@@ -53,7 +53,7 @@ class GuiTests(unittest.TestCase):
                     app.tool.set(tool)
                     app.change_tool()
                     root.update()
-                    self.assertEqual(set(app.values()), set(gui.defaults(tool)))
+                    self.assertEqual(set(app.values()) - {"calibration-transfer"}, set(gui.defaults(tool)))
                 app.tool.set("Laser clock")
                 app.change_tool()
                 app.run_button.invoke()

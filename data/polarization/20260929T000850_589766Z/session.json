@@ -1,0 +1,110 @@
+{
+  "schema": "qkd-static-polarization-v1",
+  "status": "interrupted",
+  "complete": false,
+  "settings": {
+    "source": "NI external",
+    "device": "Dev1",
+    "clock": {
+      "requested_frequency_hz": 500000.0,
+      "requested_high_ns": 100.0,
+      "nominal_timebase_hz": 100000000,
+      "high_ticks": 10,
+      "low_ticks": 190,
+      "realized_nominal_frequency_hz": 500000.0,
+      "realized_high_ns": 100,
+      "realized_low_ns": 1900,
+      "realized_duty_cycle": 0.05
+    },
+    "alice": {
+      "S0": -155.146,
+      "S1": -54.922,
+      "S2": 45.302,
+      "S3": 145.526
+    },
+    "bob": {
+      "HV": 38.712,
+      "RL": -58.54
+    },
+    "mapping": {
+      "HV": "Unassigned",
+      "RL": "Unassigned"
+    },
+    "seconds": 10.0,
+    "settle_s": 0.1,
+    "warmup_s": 1.0,
+    "ph330": {
+      "device_index": 0,
+      "serial": "1050578",
+      "laser_hz": 500000.0,
+      "sync_divider": 1,
+      "binning": 6,
+      "sync": {
+        "mode": "edge",
+        "edge": "falling",
+        "level_mv": -60,
+        "offset_ps": 0
+      },
+      "detectors": [
+        {
+          "mode": "edge",
+          "edge": "rising",
+          "level_mv": 200,
+          "offset_ps": 0,
+          "channel": 0,
+          "label": "CH1 PBS transmitted"
+        },
+        {
+          "mode": "edge",
+          "edge": "rising",
+          "level_mv": 200,
+          "offset_ps": 4500,
+          "channel": 1,
+          "label": "CH2 PBS reflected"
+        }
+      ]
+    },
+    "dll": "C:\\Program Files\\PicoQuant\\UniHarp\\PH330Lib.dll",
+    "note": "",
+    "analysis": {
+      "gate": [
+        0.0,
+        100.0
+      ],
+      "rebin": 16,
+      "plot_stop_ns": 200.0,
+      "plot_y_max": 500.0
+    },
+    "hv_gain": -20,
+    "ao_channels": [
+      "ao0",
+      "ao1"
+    ],
+    "exact_excitation_count": null
+  },
+  "device_serial": 38160323,
+  "blocks": [
+    {
+      "number": 1,
+      "alice": "S0",
+      "bob": "HV",
+      "status": "interrupted",
+      "target_eom_v": [
+        -155.146,
+        38.712
+      ],
+      "daq_v": [
+        7.757299999999999,
+        -1.9356000000000002
+      ],
+      "assumed_hv_gain": -20.0,
+      "host_start_utc": "2026-09-29T00:08:51.264843+00:00",
+      "directory": "01_Alice_S0_Bob_HV"
+    }
+  ],
+  "ao_zeroed_on_exit": true,
+  "cleanup_errors": [],
+  "note": "Static blocks only. No absolute NI-to-T3 pulse origin claimed.",
+  "error": "KeyboardInterrupt",
+  "host_end_utc": "2026-09-29T00:08:55.229228+00:00"
+}

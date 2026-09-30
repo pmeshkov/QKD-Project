@@ -1,0 +1,92 @@
+{
+  "schema": "qkd-eom-picoharp-sweep-v1",
+  "settings": {
+    "source": "Laser CW (manual)",
+    "device": "Dev1",
+    "clock": null,
+    "ph330": {
+      "device_index": 0,
+      "serial": "1050578",
+      "laser_hz": 2000000,
+      "sync_divider": 1,
+      "binning": 6,
+      "sync": {
+        "mode": "cfd",
+        "edge": "falling",
+        "level_mv": -60,
+        "offset_ps": 0,
+        "zero_cross_mv": -10
+      },
+      "detectors": [
+        {
+          "mode": "edge",
+          "edge": "rising",
+          "level_mv": 200,
+          "offset_ps": 0,
+          "channel": 0
+        },
+        {
+          "mode": "edge",
+          "edge": "rising",
+          "level_mv": 200,
+          "offset_ps": 4500,
+          "channel": 1
+        }
+      ]
+    },
+    "dll": "C:\\Program Files\\PicoQuant\\UniHarp\\PH330Lib.dll",
+    "mode": 2,
+    "duration_ms": 100,
+    "settle_s": 0.01,
+    "output": "C:\\Users\\nanometa\\Documents\\QKD_Code\\data\\eoms",
+    "note": "",
+    "points": 30,
+    "voltage_min": -200.0,
+    "voltage_max": 200.0,
+    "minimum_scan_seconds": 99.0
+  },
+  "status": "completed",
+  "complete": true,
+  "rows": 900,
+  "expected_rows": 900,
+  "csv": "20260928_204917_122756_Detector_Traces.csv",
+  "cleanup_errors": [],
+  "raw_counts_meaning": "Cumulative detected photons in completed acquisition windows; excludes settling/gaps.",
+  "rate_meaning": "Actual photons per channel divided by PicoHarp measured dwell seconds.",
+  "raw_timestamps_saved": false,
+  "ao_zeroed_on_exit": true,
+  "hardware": {
+    "model": "PicoHarp 330",
+    "part": "930050",
+    "hardware_version": "1.0",
+    "input_count": 2,
+    "features": 935,
+    "base_resolution_ps": 1.0,
+    "resolution_ps": null,
+    "channel_offsets_ps": {
+      "sync": 0,
+      "inputs": {
+        "0": 0,
+        "1": 4500
+      }
+    },
+    "channel_offsets_note": "Configured SDK values, not measured readbacks; already applied to TTTR.",
+    "histogram_offset_ns": 0,
+    "markers_enabled": false,
+    "event_filter_enabled": false,
+    "extended_deadtime_enabled": false
+  },
+  "dll_version": "2.0",
+  "rates_before": {
+    "host_utc": "2026-09-28T20:49:19.785971+00:00",
+    "sync_hz": 0,
+    "input_hz": [
+      2840,
+      1910
+    ],
+    "warnings": 0,
+    "warnings_text": ""
+  },
+  "point_details": "20260928_204917_122756_points.jsonl",
+  "host_end_utc": "2026-09-28T20:54:10.575568+00:00"
+}

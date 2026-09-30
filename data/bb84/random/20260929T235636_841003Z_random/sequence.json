@@ -1,0 +1,152 @@
+{
+  "schema": "qkd-bb84-sequence-v1",
+  "status": "complete",
+  "complete": true,
+  "created_utc": "2026-09-29T23:56:36.843490+00:00",
+  "mode": "random",
+  "trial_count": 90225564,
+  "warmup_count": 751880,
+  "samples_per_channel": 90977444,
+  "completed_trials": 90225564,
+  "completed_warmup_samples": 751880,
+  "assumed_hv_gain": -20.0,
+  "alice_voltages": {
+    "H": -152.0,
+    "V": 50.9,
+    "R": -50.87,
+    "L": 152.69
+  },
+  "bob_voltages": {
+    "HV": 47.52,
+    "RL": -47.44
+  },
+  "state_order": [
+    "H",
+    "V",
+    "R",
+    "L"
+  ],
+  "basis_order": [
+    "HV",
+    "RL"
+  ],
+  "alice_mapping": {
+    "H": {
+      "state_index": 0,
+      "bit": 0,
+      "basis": "HV",
+      "basis_index": 0
+    },
+    "V": {
+      "state_index": 1,
+      "bit": 1,
+      "basis": "HV",
+      "basis_index": 0
+    },
+    "R": {
+      "state_index": 2,
+      "bit": 0,
+      "basis": "RL",
+      "basis_index": 1
+    },
+    "L": {
+      "state_index": 3,
+      "bit": 1,
+      "basis": "RL",
+      "basis_index": 1
+    }
+  },
+  "bob_mapping": {
+    "HV": {
+      "basis_index": 0,
+      "target_hv_v": 47.52
+    },
+    "RL": {
+      "basis_index": 1,
+      "target_hv_v": -47.44
+    }
+  },
+  "warmup": {
+    "alice_state": "H",
+    "bob_basis": "HV",
+    "first_ni_sample_index": 0,
+    "sample_count": 751880,
+    "contains_experimental_trials": false
+  },
+  "indexing": {
+    "trial_index_origin": 0,
+    "ni_sample_index_origin": 0,
+    "first_experiment_ni_sample_index": 751880,
+    "relationship": "ni_sample_index = warmup_count + trial_index",
+    "recorded_sync_alignment": "not established by sequence generation"
+  },
+  "randomness": {
+    "source": "os.urandom",
+    "method": "Two independent OS-random bytes per trial; Alice uses byte0 & 3, Bob uses byte1 & 1. Power-of-two masking is unbiased.",
+    "seed_saved": false,
+    "choices_saved_before_hardware_acquisition": true
+  },
+  "calibration_provenance": "Caller-supplied target EOM voltages; physical labels are not inferred or verified.",
+  "security_note": "This is a preparation record, not evidence of synchronization or a secure key.",
+  "files": {
+    "choices": {
+      "path": "choices.npy",
+      "dtype": "uint8",
+      "shape": [
+        90225564,
+        2
+      ],
+      "columns": [
+        "alice_state_index",
+        "bob_basis_index"
+      ],
+      "sha256": "283cb0b3198b61414d9bb70385aec2c676dff2594d55f04d5bc7880f7a4cc06c",
+      "bytes": 180451256
+    },
+    "ao_waveform": {
+      "path": "ao_waveform.npy",
+      "dtype": "float64",
+      "shape": [
+        2,
+        90977444
+      ],
+      "channels": [
+        "AO0/Alice",
+        "AO1/Bob"
+      ],
+      "units": "DAQ volts",
+      "conversion": "target EOM volts / -20",
+      "sha256": "22c57b8340e6264533c7cb8d67b49483a37dd56da9114fef5e4054047b6623a7",
+      "bytes": 1455639232
+    },
+    "preview": {
+      "path": "preview.csv",
+      "scope": "First up to 1024 experimental trials, excluding warmup",
+      "sha256": "62b41cf4d5151b9418d3c9625b540fed41215b73c479f199a9eb937213b1a5ec",
+      "bytes": 55658
+    }
+  },
+  "counts": {
+    "alice": {
+      "H": 22549528,
+      "V": 22554360,
+      "R": 22559275,
+      "L": 22562401
+    },
+    "bob": {
+      "HV": 45108906,
+      "RL": 45116658
+    },
+    "alice_bob_pairs": {
+      "H/HV": 11271671,
+      "H/RL": 11277857,
+      "V/HV": 11276326,
+      "V/RL": 11278034,
+      "R/HV": 11279489,
+      "R/RL": 11279786,
+      "L/HV": 11281420,
+      "L/RL": 11280981
+    }
+  },
+  "completed_utc": "2026-09-29T23:56:39.669118+00:00"
+}

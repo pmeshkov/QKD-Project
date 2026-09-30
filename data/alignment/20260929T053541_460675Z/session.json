@@ -1,0 +1,96 @@
+{
+  "schema": "qkd-live-alignment-v1",
+  "status": "stopped",
+  "settings": {
+    "device": "Dev1",
+    "source": "CW (manual laser)",
+    "expected_sync_hz": null,
+    "clock": null,
+    "eom": {
+      "target_eom_v": [
+        -172.0,
+        -54.54
+      ],
+      "daq_v": [
+        8.6,
+        2.727
+      ],
+      "assumed_hv_gain": -20.0
+    },
+    "ph330": {
+      "device_index": 0,
+      "serial": "1050578",
+      "laser_hz": 500000,
+      "sync_divider": 1,
+      "binning": 6,
+      "sync": {
+        "mode": "edge",
+        "edge": "falling",
+        "level_mv": -60,
+        "offset_ps": 0
+      },
+      "detectors": [
+        {
+          "mode": "edge",
+          "edge": "rising",
+          "level_mv": 200,
+          "offset_ps": 0,
+          "channel": 0
+        },
+        {
+          "mode": "edge",
+          "edge": "rising",
+          "level_mv": 200,
+          "offset_ps": 4500,
+          "channel": 1
+        }
+      ]
+    },
+    "dll": "C:\\Program Files\\PicoQuant\\UniHarp\\PH330Lib.dll",
+    "poll_s": 0.2,
+    "average_s": 0.5,
+    "history_s": 30.0,
+    "output": "C:\\Users\\nanometa\\Documents\\QKD_Code\\data\\alignment",
+    "note": ""
+  },
+  "ni_serial": 38160323,
+  "dll_version": "2.0",
+  "ao_zeroed_on_exit": true,
+  "cleanup_errors": [],
+  "samples": 768,
+  "recording": "PH330 rate-meter samples only; no photon timestamps or exact pulse index",
+  "ph330_hardware": {
+    "model": "PicoHarp 330",
+    "part": "930050",
+    "hardware_version": "1.0",
+    "input_count": 2,
+    "features": 935,
+    "base_resolution_ps": 1.0,
+    "resolution_ps": null,
+    "channel_offsets_ps": {
+      "sync": 0,
+      "inputs": {
+        "0": 0,
+        "1": 4500
+      }
+    },
+    "channel_offsets_note": "Configured SDK values, not measured readbacks; already applied to TTTR.",
+    "histogram_offset_ns": 0,
+    "markers_enabled": false,
+    "event_filter_enabled": false,
+    "extended_deadtime_enabled": false
+  },
+  "last_clock": null,
+  "last_eom": {
+    "target_eom_v": [
+      0.0,
+      0.0
+    ],
+    "daq_v": [
+      -0.0,
+      -0.0
+    ],
+    "assumed_hv_gain": -20.0
+  },
+  "host_end_utc": "2026-09-29T05:38:21.802978+00:00"
+}

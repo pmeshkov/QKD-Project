@@ -280,7 +280,9 @@ def run(api, cfg, seconds, destination, acquire, stop_event=None, allow_dark_cha
 
 
 def main(argv=None, stop_event=None):
+    from figure_options import validated_dpi
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--plot-dpi", type=validated_dpi, default=300)
     parser.add_argument("--config", required=True, type=Path)
     parser.add_argument("--dll", default=DEFAULT_DLL, type=Path)
     parser.add_argument("--seconds", type=float, default=10)
@@ -306,7 +308,7 @@ def main(argv=None, stop_event=None):
         if args.preview:
             try:
                 from ph330_preview import preview
-                preview(folder)
+                preview(folder, plot_dpi=args.plot_dpi)
             except Exception as exc:
                 print(f"Raw acquisition saved at {folder}. Preview failed: {exc}")
                 return 2

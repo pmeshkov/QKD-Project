@@ -32,6 +32,8 @@ BUFFER_SAMPLES = 1_000_000
 CHUNK_SAMPLES = 100_000
 WRITE_TIMEOUT_S = 1.0
 TAIL_SECONDS = 0.02
+SYNC_LOST = 0x0004
+SYNC_STARTUP_SECONDS = 0.5
 # A driver call that ignores its timeout must retain its task/mapping instead of
 # racing close()/zero() against the still-running writer. Restart the process
 # after resolving that exceptional driver failure; ordinary Stop never uses this.
@@ -62,6 +64,7 @@ def prepare_plan(cfg):
     ph["laser_hz"] = plan["realized_rate_hz"]
     photon.validate(ph, expected_laser_hz=None)
     plan.update(mode=cfg["mode"], trial_count=trials, warmup_count=warmup,
+                trigger_chain=copy.deepcopy(cfg.get("trigger_chain")),
                 samples_per_channel=total, requested_seconds=trials / plan["realized_rate_hz"],
                 warmup_seconds=warmup / plan["realized_rate_hz"],
                 output_seconds=total / plan["realized_rate_hz"],
@@ -160,12 +163,40 @@ def _fill_remaining(writer, waveform, start, chunk_samples, abort, result):
         result["complete"] = False
 
 
-def _fifo_once(api, index, stream, raw, buffer, actual):
-    flags = photon.scalar(api, index, "GetFlags")
+def _check_flags(raw, flags, phase="active", elapsed=0., startup_allowance=0.):
+    """Tolerate absent SYNC only at bounded, explicitly recorded boundaries.
+
+    GetFlags has no event timestamp. These host observations do not establish
+    which photons are valid or the NI-to-T3 index origin.
+    """
     raw["flags_seen"] |= flags
-    if flags & photon.BAD_FLAGS:
-        raise RuntimeError("Invalid TTTR flags: " + ", ".join(
-            name for bit, name in photon.FLAG_NAMES.items() if flags & bit))
+    by_phase = raw.setdefault("flags_by_phase", {})
+    by_phase[phase] = by_phase.get(phase, 0) | flags
+    bad = flags & photon.BAD_FLAGS
+    if phase in ("tail", "stopped"):
+        bad &= ~SYNC_LOST
+    elif phase == "startup":
+        if flags & SYNC_LOST:
+            if elapsed < startup_allowance:
+                bad &= ~SYNC_LOST
+                raw["startup_sync_loss_observed"] = True
+            elif not bad & ~SYNC_LOST:
+                raise RuntimeError("PicoHarp SYNC_LOST did not clear within the startup allowance "
+                                   f"({startup_allowance:g} s, bounded by warm-up). Check BDL TRG OUT "
+                                   "-> PicoHarp SYNC, input edge/threshold, and laser triggering.")
+        else:
+            raw["startup_sync_clear_observed"] = True
+            raw["startup_sync_clear_host_seconds_after_ni_start"] = elapsed
+            raw["startup_sync_clear_raw_record_offset"] = raw["records"]
+    if bad:
+        raise RuntimeError("Invalid TTTR flags during " + phase + ": " + ", ".join(
+            name for bit, name in photon.FLAG_NAMES.items() if bad & bit))
+
+
+def _fifo_once(api, index, stream, raw, buffer, actual, *, phase="active",
+               elapsed=0., startup_allowance=0.):
+    flags = photon.scalar(api, index, "GetFlags")
+    _check_flags(raw, flags, phase, elapsed, startup_allowance)
     api.call("ReadFiFo", index, buffer, ct.byref(actual))
     if not 0 <= actual.value <= photon.TTREADMAX:
         raise RuntimeError("Invalid PH330 FIFO record count.")
@@ -181,7 +212,7 @@ def _drain_stopped(api, index, stream, raw, buffer, actual):
     empty = 0
     deadline = time.monotonic() + 5
     while empty < 6:
-        count = _fifo_once(api, index, stream, raw, buffer, actual)
+        count = _fifo_once(api, index, stream, raw, buffer, actual, phase="stopped")
         empty = 0 if count else empty + 1
         if time.monotonic() > deadline:
             raise TimeoutError("Stopped PicoHarp FIFO did not drain within five seconds.")
@@ -206,7 +237,8 @@ def run(cfg, stop_event=None, *, daq=None, system=None, constants=None,
     folder.mkdir(parents=True, exist_ok=False)
     session_path = folder / "session.json"
     record = dict(schema="qkd-bb84-acquisition-v1", status="preparing", complete=False,
-                  plan=plan, note=str(cfg.get("note", "")), alignment_status="unverified",
+                  plan=plan, note=str(cfg.get("note", "")), measurement=cfg.get("measurement", {}),
+                  calibration_transfer=cfg.get("calibration_transfer"), alignment_status="unverified",
                   sync_origin=None, eligible_for_key_processing=False,
                   labels_confirmed=plan["labels_confirmed"],
                   alignment_note="NI sample indices are known, but their PicoHarp SYNC offset is not. "
@@ -278,6 +310,10 @@ def run(cfg, stop_event=None, *, daq=None, system=None, constants=None,
                    raw_file="events.t3raw", record_format="GenericT3", record_type="0x00010307",
                    dtype="little-endian uint32", measurement_control="software_start_stop",
                    alignment_status="unverified", sync_origin=None,
+                   startup_sync_allowance_s=min(SYNC_STARTUP_SECONDS, plan["warmup_seconds"]),
+                   sync_boundary_note="SYNC_LOST may occur before laser startup or after finite clock stop. "
+                                      "All flags and raw records are retained. Host phase/record offsets "
+                                      "are diagnostic only, not valid-event boundaries or pulse alignment.",
                    note="Includes pre-NI and post-NI events. No pulse-index correspondence established.")
         _save(raw_path, raw)
         _save(session_path, record)
@@ -304,6 +340,8 @@ def run(cfg, stop_event=None, *, daq=None, system=None, constants=None,
         print(f"Running {plan['trial_count']:,} {plan['mode']} trials after "
               f"{plan['warmup_count']:,} warmup pulses at {plan['realized_rate_hz']:g} Hz.", flush=True)
         print("T3 origin is UNVERIFIED; this run cannot yet be accepted as indexed key data.", flush=True)
+        print(f"Allowing startup SYNC_LOST for up to {raw['startup_sync_allowance_s']:g} s "
+              "within warm-up; after the first clear flag, SYNC loss is fatal until NI completes.", flush=True)
         finished_at = None
         progress_at = started
         deadline = started + plan["output_seconds"] + 15
@@ -314,10 +352,11 @@ def run(cfg, stop_event=None, *, daq=None, system=None, constants=None,
                 raise RuntimeError("AO streaming failed: " + writer_result["error"])
             if photon.scalar(api, index, "CTCStatus"):
                 raise RuntimeError("PicoHarp acquisition ended before software requested Stop.")
-            _fifo_once(api, index, stream, raw, buffer, actual)
             now = time.monotonic()
             ao_done, co_done = ao.is_task_done(), co.is_task_done()
-            if record["rates_validation"] == "not_yet_checked" and now - started >= .2 and not co_done:
+            record["stage"] = "record finite NI sequence"
+            if (record["rates_validation"] == "not_yet_checked" and now - started >= .2
+                    and not co_done and raw.get("startup_sync_clear_observed")):
                 measured = photon.rates(api, index, info["input_count"])
                 record["rates_during"] = measured
                 period = photon.scalar(api, index, "GetSyncPeriod", ct.c_double)
@@ -344,6 +383,16 @@ def run(cfg, stop_event=None, *, daq=None, system=None, constants=None,
                     raise RuntimeError("AO generated sample count differs from planned finite sequence.")
                 record["ni_sequence_complete"] = True
                 finished_at = now
+            if finished_at is not None:
+                if not raw.get("startup_sync_clear_observed"):
+                    raise RuntimeError("Finite NI sequence ended before a clear PicoHarp SYNC flag was observed. "
+                                       "Increase warm-up/run duration and verify TRG OUT -> SYNC.")
+                phase = "tail"
+                record["stage"] = "record tail after finite NI completion"
+            else:
+                phase = "active" if raw.get("startup_sync_clear_observed") else "startup"
+            _fifo_once(api, index, stream, raw, buffer, actual, phase=phase,
+                       elapsed=now-started, startup_allowance=raw["startup_sync_allowance_s"])
             if finished_at is not None and now - finished_at >= TAIL_SECONDS:
                 break
             if now > deadline:

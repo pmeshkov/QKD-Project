@@ -1,0 +1,202 @@
+{
+  "schema": "qkd-bb84-acquisition-v1",
+  "status": "completed",
+  "complete": true,
+  "plan": {
+    "requested_rate_hz": 750000.0,
+    "realized_rate_hz": 751879.6992481203,
+    "period_ticks": 133,
+    "period_ns": 1330,
+    "requested_delay_ns": 900.0,
+    "delay_ticks": 90,
+    "nominal_delay_ns": 900,
+    "requested_high_ns": 100.0,
+    "high_ticks": 10,
+    "low_ticks": 123,
+    "high_ns": 100,
+    "duty_cycle": 0.07518796992481203,
+    "hold_pulses": 1,
+    "level_dwell_us": 1.33,
+    "ab_pattern_hz": 375939.84962406015,
+    "target_hv": [
+      [
+        -159.18367346938777,
+        36.734693877551024
+      ],
+      [
+        44.89795918367346,
+        -53.061224489795904
+      ]
+    ],
+    "daq_levels": [
+      [
+        7.959183673469388,
+        -1.8367346938775513
+      ],
+      [
+        -2.244897959183673,
+        2.6530612244897953
+      ]
+    ],
+    "assumed_hv_gain": -20.0,
+    "samples_per_channel": 90977444,
+    "timebase_hz": 100000000,
+    "device": "Dev1",
+    "start_trigger": "/Dev1/ao/SampleClock",
+    "counter": "Dev1/ctr0",
+    "terminal": "/Dev1/PFI12",
+    "mode": "ordered",
+    "delay_note": "Nominal delay from AO sample clock to NI trigger; scope verification required.",
+    "trial_count": 90225564,
+    "warmup_count": 751880,
+    "trigger_chain": {
+      "route": "NI PFI12 -> externally triggered function generator -> BDL SYNC IN; BDL TRG OUT -> PicoHarp SYNC",
+      "function_generator_settings": "",
+      "external_pulse_width_control": "manual, not controlled by this application"
+    },
+    "requested_seconds": 120.00000012,
+    "warmup_seconds": 1.0000004,
+    "output_seconds": 121.00000052,
+    "alice_voltages": {
+      "H": -159.18367346938777,
+      "V": 36.734693877551024,
+      "R": -69.38775510204081,
+      "L": 151.0204081632653
+    },
+    "bob_voltages": {
+      "HV": 44.89795918367346,
+      "RL": -53.061224489795904
+    },
+    "ph330": {
+      "device_index": 0,
+      "serial": "1050578",
+      "binning": 6,
+      "laser_hz": 751879.6992481203,
+      "sync_divider": 1,
+      "sync": {
+        "mode": "edge",
+        "edge": "falling",
+        "level_mv": -60,
+        "offset_ps": 0
+      },
+      "detectors": [
+        {
+          "mode": "edge",
+          "edge": "rising",
+          "level_mv": 200,
+          "offset_ps": 0,
+          "channel": 0
+        },
+        {
+          "mode": "edge",
+          "edge": "rising",
+          "level_mv": 200,
+          "offset_ps": 4500,
+          "channel": 1
+        }
+      ]
+    },
+    "labels_confirmed": false,
+    "buffer_samples": 1000000,
+    "chunk_samples": 75188,
+    "mode_note": "Finite nonregenerating AO and finite delayed Ctr0 pulse train",
+    "alignment_status": "unverified",
+    "sync_origin": null,
+    "estimated_sequence_bytes": 1636090232,
+    "random_choices_note": "Ordered commissioning pattern"
+  },
+  "note": "emitter 4",
+  "measurement": {
+    "sample_type": "Unspecified",
+    "bandpass_filter": "570BP",
+    "laser_power": "0.5 uW"
+  },
+  "calibration_transfer": null,
+  "alignment_status": "unverified",
+  "sync_origin": null,
+  "eligible_for_key_processing": false,
+  "labels_confirmed": false,
+  "alignment_note": "NI sample indices are known, but their PicoHarp SYNC offset is not. Warmup and the first photon do not establish trial zero.",
+  "cleanup_errors": [],
+  "ao_zeroed_on_exit": true,
+  "hardware_started": true,
+  "rates_validation": "passed_rate_only_not_index_alignment",
+  "ni_sequence_complete": true,
+  "host_start_utc": "2026-09-29T23:39:26.648412+00:00",
+  "sequence": "sequence.json",
+  "sequence_files": {
+    "choices": {
+      "path": "choices.npy",
+      "dtype": "uint8",
+      "shape": [
+        90225564,
+        2
+      ],
+      "columns": [
+        "alice_state_index",
+        "bob_basis_index"
+      ],
+      "sha256": "dd09298432cd9a15ab49ad0c6dae82935953cf60d134065fff957de3c96c5ae1",
+      "bytes": 180451256
+    },
+    "ao_waveform": {
+      "path": "ao_waveform.npy",
+      "dtype": "float64",
+      "shape": [
+        2,
+        90977444
+      ],
+      "channels": [
+        "AO0/Alice",
+        "AO1/Bob"
+      ],
+      "units": "DAQ volts",
+      "conversion": "target EOM volts / -20",
+      "sha256": "8a3dcb0f242e0a34bc33bcd57b20351df33ba1a2be6b40284e06ae0fbcf13087",
+      "bytes": 1455639232
+    },
+    "preview": {
+      "path": "preview.csv",
+      "scope": "First up to 1024 experimental trials, excluding warmup",
+      "sha256": "e88af34e9e4f55496584d1355ec7023d0359eb88bc4129af4a77313466f4db76",
+      "bytes": 100371
+    }
+  },
+  "stage": "record tail after finite NI completion",
+  "daqmx_readback": {
+    "product_type": "USB-6351",
+    "serial_number": 38160323,
+    "ao_rate_hz": 751879.6992481203,
+    "ao_timebase_hz": 100000000.0,
+    "ao_divisor": 133,
+    "ao_timebase_source": "/Dev1/100MHzTimebase",
+    "ao_onboard_only": false,
+    "ao_regen_mode": "RegenerationMode.DONT_ALLOW_REGENERATION",
+    "ao_samples": 90977444,
+    "counter_samples": 90977444,
+    "counter_timebase_source": "/Dev1/100MHzTimebase",
+    "counter_initial_delay": 90,
+    "counter_high_ticks": 10,
+    "counter_low_ticks": 123,
+    "counter_terminal": "/Dev1/PFI12",
+    "counter_start_source": "/Dev1/ao/SampleClock"
+  },
+  "tttr": "tttr/metadata.json",
+  "ni_host_start_utc": "2026-09-29T23:39:32.335878+00:00",
+  "rates_during": {
+    "host_utc": "2026-09-29T23:39:32.676792+00:00",
+    "sync_hz": 751880,
+    "input_hz": [
+      60,
+      440
+    ],
+    "warnings": 0,
+    "warnings_text": ""
+  },
+  "ao_samples_generated": 90977444,
+  "ao_stream": {
+    "complete": true,
+    "samples_written": 90977444
+  },
+  "host_end_utc": "2026-09-29T23:41:33.522952+00:00"
+}
