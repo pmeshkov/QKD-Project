@@ -192,9 +192,11 @@ class ScopeTests(unittest.TestCase):
         with patch.object(scope, "run_session") as hardware, contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(gui.execute("EOM timing scope", values, threading.Event()), 0)
             hardware.assert_not_called()
-        values["action"] = "Output timing pattern"
-        self.assertIn("--run", gui.arguments("EOM timing scope", values))
-        self.assertIn("--alice-a-v=-80", gui.arguments("EOM timing scope", values))
+        import timing_marker_controls as timing
+        values["action"] = timing.SCOPE
+        self.assertEqual(gui.arguments(timing.TOOL, values), [])
+        cfg = timing.settings(values)
+        self.assertEqual(cfg["plan"]["target_hv"][0], [-80, 120])
 
     def test_preview_file(self):
         with tempfile.TemporaryDirectory() as temp, contextlib.redirect_stdout(io.StringIO()):

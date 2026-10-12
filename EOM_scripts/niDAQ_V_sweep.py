@@ -15,7 +15,7 @@ import numpy as np
 # ==========================================
 # N determined the number of total voltage steps for each detector
 # v_sweep is a 2D array storing all the voltage configurations
-N = 60
+N = 20
 v_sweep = np.linspace(-200, 200, N)
 
 # This is the GUI window size. Note that it defaults to

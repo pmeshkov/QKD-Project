@@ -1,4 +1,4 @@
-"""Repeating two-level EOM scope test. No PicoHarp acquisition or BB84 indexing.
+"""Repeating two-level NI scope backend; optional running callback for T3 tests.
 
 AO SampleClock starts Ctr0 through its gate/start-trigger route (X Series manual,
 ch. 7). Both clocks divide the same 100 MHz timebase by exactly the same integer.
@@ -63,11 +63,14 @@ def make_plan(args):
 
 
 def waveform(plan):
-    return np.ascontiguousarray(np.repeat(np.array(plan["daq_levels"], dtype=float),
-                                         plan["hold_pulses"], axis=1))
+    cycle = np.repeat(np.array(plan["daq_levels"], dtype=float), plan["hold_pulses"], axis=1)
+    return np.ascontiguousarray(np.tile(cycle, (1, plan["samples_per_channel"]//cycle.shape[1])))
 
 
 def save_preview(folder, plan):
+    if plan.get('marker_enabled'):
+        from timing_marker_analysis import command_preview
+        return command_preview(folder,plan)
     # Object-based Agg rendering also works in the GUI worker thread.
     from matplotlib.figure import Figure
     from matplotlib.backends.backend_agg import FigureCanvasAgg
@@ -100,7 +103,8 @@ def save_preview(folder, plan):
     print(f"Preview image: {path.resolve()}", flush=True)
 
 
-def run_session(args, plan, stop_event, daq=None, system=None, constants=None):
+def run_session(args, plan, stop_event, daq=None, system=None, constants=None,
+                on_running=None, marker_writer_factory=None):
     """Injectable hardware boundary; tests never open a physical device."""
     folder = args.output / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S_%fZ_scope")
     folder.mkdir(parents=True, exist_ok=False)
@@ -108,7 +112,7 @@ def run_session(args, plan, stop_event, daq=None, system=None, constants=None):
     record = dict(schema="qkd-eom-scope-v1", plan=plan, note=args.note,
                   requested_seconds=args.seconds, status="preparing", cleanup_errors=[],
                   ao_zeroed_on_exit=False, hardware_started=False,
-                  scope_reference="User observes BDL TTL OUT; offset to TRG OUT/optical pulse unmeasured.")
+                  scope_reference="BDL TTL OUT vs TRG OUT alignment previously reported by user; current cable/optical delays require scope evidence.")
 
     def save():
         tmp = path.with_suffix(".tmp")
@@ -120,13 +124,14 @@ def run_session(args, plan, stop_event, daq=None, system=None, constants=None):
     with (folder / "command_cycle.csv").open("w", newline="", encoding="utf-8") as stream:
         writer = csv.writer(stream)
         writer.writerow(["sample_index", "ao_clock_time_ns", "ni_trigger_time_ns",
-                         "alice_target_hv_v", "bob_target_hv_v", "ao0_v", "ao1_v"])
+                         "alice_target_hv_v", "bob_target_hv_v", "ao0_v", "ao1_v", "marker_logic"])
         for i, pair in enumerate(samples.T):
             writer.writerow([i, i*plan["period_ns"], i*plan["period_ns"]+plan["nominal_delay_ns"],
-                             pair[0]*HV_GAIN, pair[1]*HV_GAIN, *pair])
+                             pair[0]*HV_GAIN, pair[1]*HV_GAIN, *pair,
+                             int(plan.get('marker_enabled',False) and i==plan.get('marker_sample'))])
     save_preview(folder, plan)
-    ao = co = None
-    ao_started = co_started = False
+    ao = co = do = None
+    ao_started = co_started = do_started = False
     code = 0
     try:
         if stop_event.is_set():
@@ -161,10 +166,22 @@ def run_session(args, plan, stop_event, daq=None, system=None, constants=None):
         co.timing.cfg_implicit_timing(sample_mode=constants.AcquisitionType.CONTINUOUS)
         co.triggers.start_trigger.cfg_dig_edge_start_trig(plan["start_trigger"],
                                                         trigger_edge=constants.Edge.RISING)
+        if plan.get("marker_enabled"):
+            do = daq.Task()
+            do.do_channels.add_do_chan(f"{args.device}/port0/line0",
+                                       line_grouping=constants.LineGrouping.CHAN_FOR_ALL_LINES)
+            do.timing.cfg_samp_clk_timing(plan["realized_rate_hz"], source=plan["start_trigger"],
+                                         active_edge=constants.Edge.RISING,
+                                         sample_mode=constants.AcquisitionType.CONTINUOUS,
+                                         samps_per_chan=plan["samples_per_channel"])
+            do.out_stream.output_buf_size = plan["samples_per_channel"]
+            do.out_stream.regen_mode = constants.RegenerationMode.ALLOW_REGENERATION
+            do.do_channels.all.do_use_only_on_brd_mem = True
         record["stage"] = "verify and commit routes (no outputs started)"
-        for task in (ao, co):
+        tasks = (ao, co, do) if do is not None else (ao, co)
+        for task in tasks:
             task.control(constants.TaskMode.TASK_VERIFY)
-        for task in (ao, co):
+        for task in tasks:
             task.control(constants.TaskMode.TASK_COMMIT)
         readback = dict(ao_rate_hz=ao.timing.samp_clk_rate,
                         ao_timebase_hz=ao.timing.samp_clk_timebase_rate,
@@ -178,6 +195,13 @@ def run_session(args, plan, stop_event, daq=None, system=None, constants=None):
                         counter_terminal=channel.co_pulse_term,
                         counter_start_source=co.triggers.start_trigger.dig_edge_src)
         record["daqmx_readback"] = readback
+        if do is not None:
+            readback["marker"] = dict(clock=do.timing.samp_clk_src,
+                                      write_sample_bits=32,
+                                      onboard_only=do.do_channels.all.do_use_only_on_brd_mem)
+            if (do.timing.samp_clk_src.strip('/').lower() != plan["start_trigger"].strip('/').lower()
+                    or not readback["marker"]["onboard_only"]):
+                raise RuntimeError("Marker clock/readback differs from plan; no outputs started.")
         if (not math.isclose(readback["ao_rate_hz"], plan["realized_rate_hz"], rel_tol=1e-9)
                 or readback["ao_timebase_hz"] != TIMEBASE_HZ
                 or readback["ao_divisor"] != plan["period_ticks"]
@@ -189,12 +213,25 @@ def run_session(args, plan, stop_event, daq=None, system=None, constants=None):
         record["stage"] = "load complete repeating waveform"
         if ao.write(samples, auto_start=False, timeout=10) != samples.shape[1]:
             raise RuntimeError("Incomplete AO waveform write.")
+        if do is not None:
+            if marker_writer_factory is None:
+                from nidaqmx.stream_writers import DigitalSingleChannelWriter
+                marker_writer_factory = DigitalSingleChannelWriter
+            # DAQmx on the bench USB-6351 requires 32-bit port writes even
+            # for the single configured P0.0 line (8-bit writes: -200565).
+            marker = np.zeros(plan["samples_per_channel"], dtype=np.uint32)
+            marker[plan["marker_sample"]] = 1
+            if marker_writer_factory(do.out_stream, auto_start=False).write_many_sample_port_uint32(marker, timeout=10) != len(marker):
+                raise RuntimeError("Incomplete marker waveform write.")
         save()
         if stop_event.is_set():
             raise KeyboardInterrupt
         record["stage"] = "arm counter then start AO sample clock"
         co_started = True  # Also clean up if a start call fails partway through.
         co.start()  # Waits for the first AO SampleClock rising edge.
+        if do is not None:
+            do_started = True
+            do.start()
         ao_started = True
         ao.start()
         record.update(status="running", hardware_started=True,
@@ -202,13 +239,21 @@ def run_session(args, plan, stop_event, daq=None, system=None, constants=None):
         save()
         print(f"Running: {plan['realized_rate_hz']:g} Hz; nominal trigger delay "
               f"{plan['nominal_delay_ns']:g} ns; level dwell {plan['level_dwell_us']:g} us.", flush=True)
-        print("Trigger the scope on a monitor step to distinguish A and B. Stop before editing settings.", flush=True)
+        print("Trigger scope CH4 on the marker rising edge at the A→B command. Stop before editing settings."
+              if do is not None else "Trigger the scope on a monitor step. Stop before editing settings.", flush=True)
         started = time.monotonic()
-        while not stop_event.wait(.1):
-            if ao.is_task_done() or co.is_task_done():
+        def check_running():
+            if stop_event.is_set():
+                raise KeyboardInterrupt
+            if ao.is_task_done() or co.is_task_done() or (do is not None and do.is_task_done()):
                 raise RuntimeError("A continuous NI task stopped unexpectedly.")
-            if args.seconds and time.monotonic() - started >= args.seconds:
-                break
+        if on_running is not None:
+            on_running(folder, record, check_running)
+        else:
+            while not stop_event.wait(.1):
+                check_running()
+                if args.seconds and time.monotonic() - started >= args.seconds:
+                    break
         record["host_elapsed_seconds"] = time.monotonic() - started
         record["status"] = "stopped" if stop_event.is_set() else "completed"
     except KeyboardInterrupt:
@@ -219,7 +264,7 @@ def run_session(args, plan, stop_event, daq=None, system=None, constants=None):
         print(f"Scope test failed at {record.get('stage', 'initialization')}: {exc}", flush=True)
     finally:
         # Stop laser triggers BEFORE stopping/changing voltages. Never reset the device.
-        for name, task, was_started in (("counter", co, co_started), ("AO", ao, ao_started)):
+        for name, task, was_started in (("counter", co, co_started), ("marker", do, do_started), ("AO", ao, ao_started)):
             if task is not None:
                 if was_started:
                     try:
@@ -230,6 +275,22 @@ def run_session(args, plan, stop_event, daq=None, system=None, constants=None):
                     task.close()
                 except Exception as exc:
                     record["cleanup_errors"].append(f"Close {name}: {exc}")
+        if do_started:
+            zero_marker = None
+            try:
+                zero_marker = daq.Task()
+                zero_marker.do_channels.add_do_chan(f"{args.device}/port0/line0",
+                                                    line_grouping=constants.LineGrouping.CHAN_FOR_ALL_LINES)
+                zero_marker.write(False, auto_start=True)
+                record["marker_low_on_exit"] = True
+            except Exception as exc:
+                record["cleanup_errors"].append(f"Zero marker: {exc}")
+            finally:
+                if zero_marker is not None:
+                    try:
+                        zero_marker.close()
+                    except Exception as exc:
+                        record["cleanup_errors"].append(f"Close marker reset: {exc}")
         if ao_started:
             zero = None
             try:
@@ -250,8 +311,12 @@ def run_session(args, plan, stop_event, daq=None, system=None, constants=None):
             print("Cleanup errors: " + "; ".join(record["cleanup_errors"]), flush=True)
         record["host_end_utc"] = datetime.now(timezone.utc).isoformat()
         save()
-        print("AO0/AO1 returned to 0 V." if record["ao_zeroed_on_exit"] else
-              "No successful AO zero operation recorded; see run metadata.", flush=True)
+        if record["ao_zeroed_on_exit"]:
+            print("AO0/AO1 returned to 0 V.", flush=True)
+        elif not (ao_started or co_started or do_started):
+            print("Waveform generation was not started; no AO reset was attempted.", flush=True)
+        else:
+            print("No successful AO zero operation recorded; see run metadata.", flush=True)
         print(f"Run record: {path.resolve()}", flush=True)
     return code
 

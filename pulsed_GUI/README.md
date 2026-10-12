@@ -11,10 +11,10 @@ These entries are remembered per mode: review them when changing samples.
 The calibration sweep's eight-column CSV is unchanged; its context is in the
 adjacent `_sweep.json` file. Live alignment is display-only and saves no run data.
 
-The final cell of `EOM_scripts/CalibrateEOMVoltages.ipynb` provides **Copy calibration**
-and a JSON block. In Polarization matrix or either BB84 mode, open **Voltages →
-Paste calibration (six voltages)**. Only that mode's form is filled; hardware
-outputs do not change. Repeat the paste in another mode when needed. Candidate
+The copy-calibration cell of `EOM_scripts/CalibrateEOMVoltages.ipynb` prints a bulk-copy JSON block.
+In Polarization matrix or either BB84 mode, open **Voltages →
+Paste calibration → polarization + both BB84 tools**. All three profiles receive
+the same six voltages; hardware outputs do not change. Candidate
 provenance and check results are saved, and subsequent manual voltage edits are
 flagged. Pasting resets physical-label confirmation and detector outcome labels.
 
@@ -27,20 +27,25 @@ and arrival histogram open after analysis; **Open plots** reopens them.
 | --- | --- | --- |
 | Live alignment | Live PicoHarp rates with adjustable Alice/Bob biases and laser clock | [Live alignment](LIVE_ALIGNMENT.md) |
 | EOM calibration sweep | Adjustable N × N voltage grid (default 60 × 60) with PicoHarp counts and notebook-compatible CSV | [Calibration sweep](EOM_CALIBRATION_SWEEP.md) |
-| EOM calibration analysis | Measured-grid voltage selection, held-out checks, and direct handoff to measurement forms | [Calibration analysis](EOM_CALIBRATION_ANALYSIS.md) |
+| EOM calibration analysis | Joint detector-response fit, minimum-voltage selection and independent verification | [Calibration analysis](EOM_CALIBRATION_ANALYSIS.md) |
 | Polarization matrix | Eight static voltage pairs; both detectors; arrival histograms and matrices | [Polarization](PULSED_POLARIZATION.md) |
 | Ordered BB84 | Finite pulse-by-pulse timing and optical test | [BB84 acquisition](BB84.md) |
 | Randomized BB84 | Independently randomized Alice states and Bob bases | [BB84 acquisition](BB84.md) |
 | Arrival time / lifetime (CH1) | CH1 arrival histogram and optional preliminary decay fit | [CH1 guide](LIFETIME_CH1.md) |
 | Pulsed / CW g2 | Two-detector correlations from 500 kHz through 80 MHz pulsed, plus CW | [g2 guide](G2.md) |
-| EOM timing on scope | Buffered repeating voltage steps with delayed laser triggers | [Scope guide](EOM_TIMING_SCOPE.md) |
+| EOM / timing marker test | Scope-only pattern, bounded TCSPC tests and saved offset reference | [Scope guide](EOM_TIMING_SCOPE.md) |
+| Laser clock only | Simple configurable PFI12 clock | Existing clock controls |
 | Device connection | Find PicoHarp or inspect DLL without acquiring | [PicoHarp guide](PH330.md) |
 
 The **Advanced** entries retain clock-only, static clock/voltage, two-channel T3 tools for diagnostics; BB84 diagnostics are integrated into the BB84 modes. The new g2 mode supports the QKD setup's longer correlation windows; its PBS-output result is polarization-resolved cross-correlation. The separate quantum emitter setup remains available for independent source characterization. A PBS output coincidence plot alone is not automatically a source HBT characterization.
 
 For polarization, **Seconds at EACH voltage pair** defaults to 60 seconds: eight settings take about eight minutes plus warm-up and settling. Increase it for low counts. Internal 2/20/80 MHz choices require manually disconnecting PFI12 and selecting the laser controller rate; confirm this in the Run tab. The software then uses no NI counter clock. Reconnect for NI-triggered operation.
 
-The two pulse-by-pulse modes are ready for **commissioning**, with complete saved command sequences and raw T3. They do not yet establish the absolute NI-to-PicoHarp trial origin or produce an accepted key/QBER. See the BB84 guide before interpreting those recordings.
+The two pulse-by-pulse modes support optional AO-clocked **Timing markers** on
+P0.0 through **Use timing marker: Yes/No**. Yes loads a matching verified
+reference from **EOM / timing marker test**, or reports that only spacing is
+checked. See the [marker and audit guide](../docs/BB84_TIMING_MARKERS.md).
+They do not produce an accepted key/QBER.
 
 For either BB84 mode, choose **Record** directly: preparation and acquisition save
 together in one run folder. **Prepare only** is an optional independent offline test,
@@ -70,7 +75,7 @@ shortcuts. Source filenames remain visible, and no shortcut starts hardware.
 | `bb84_controls.py`, `bb84_sequence.py`, `bb84_run.py` | Protocol forms, precomputed sequences, finite NI + T3 acquisition |
 | `eom_timing_scope.py` | Scope timing patterns |
 | `eom_voltage_sweep.py` | Timed PicoHarp counting across the notebook-compatible static calibration grid |
-| `eom_calibration.py`, `eom_calibration_core.py`, `eom_calibration_figures.py` | Notebook-equivalent calibration workflow, shared calculations and diagnostics |
+| `eom_calibration.py`, `eom_model_calibration.py`, `eom_calibration_verify.py` | Shared physical fit, minimum-voltage optimization and independent verification |
 | `recent_data.py` | Compatible recent-run locations and file-picker defaults |
 | `bb84_analysis.py` | Full-file ordered phase diagnostics and supplied-origin saved-choice comparisons |
 | `g2_measurement.py`, `g2_analysis.py` | Pulsed T3 / CW T2 acquisition and full-file two-detector correlation |

@@ -1,0 +1,420 @@
+{
+  "schema": "qkd-eom-model-calibration-v2",
+  "status": "completed",
+  "parameters": {
+    "action": "Fit sweep",
+    "output": "",
+    "note": "Offline regression check of joint physical fit; no hardware used, no GUI voltage profiles changed.",
+    "plot_dpi": 300,
+    "csv": "C:\\Users\\nanometa\\Documents\\QKD_Code\\data\\eoms\\20261011_053438_725072\\20261011_053438_725072_Detector_Traces.csv",
+    "alice_limit": 180.0,
+    "bob_limit": 180.0,
+    "vpi_min": 50.0,
+    "vpi_max": 400.0,
+    "balance_tolerance": 0.05,
+    "extinction_tolerance": 0.15,
+    "legacy_dwell": null
+  },
+  "source": {
+    "csv": "C:\\Users\\nanometa\\Documents\\QKD_Code\\data\\eoms\\20261011_053438_725072\\20261011_053438_725072_Detector_Traces.csv",
+    "csv_sha256": "e0de63dad58cba3f8d9ac921460d2685fde2e3f5e35a3a04fd4a547a84537fa0",
+    "exact_counts": true,
+    "source": "Laser CW (manual)",
+    "acquisition_settings": {
+      "source": "Laser CW (manual)",
+      "device": "Dev1",
+      "clock": null,
+      "ph330": {
+        "device_index": 0,
+        "serial": "1050578",
+        "laser_hz": 2000000,
+        "sync_divider": 1,
+        "binning": 6,
+        "sync": {
+          "mode": "cfd",
+          "edge": "falling",
+          "level_mv": -60,
+          "offset_ps": 0,
+          "zero_cross_mv": -10
+        },
+        "detectors": [
+          {
+            "mode": "edge",
+            "edge": "rising",
+            "level_mv": 200,
+            "offset_ps": 0,
+            "channel": 0
+          },
+          {
+            "mode": "edge",
+            "edge": "rising",
+            "level_mv": 200,
+            "offset_ps": 4500,
+            "channel": 1
+          }
+        ]
+      },
+      "dll": "C:\\Program Files\\PicoQuant\\UniHarp\\PH330Lib.dll",
+      "mode": 2,
+      "duration_ms": 100,
+      "settle_s": 0.2,
+      "output": "C:\\Users\\nanometa\\Documents\\QKD_Code\\data\\eoms",
+      "note": "dogshit",
+      "measurement": {
+        "sample_type": "Unspecified",
+        "bandpass_filter": "570 BP",
+        "laser_power": "5 uW"
+      },
+      "points": 30,
+      "plot_dpi": 300,
+      "voltage_min": -200.0,
+      "voltage_max": 200.0,
+      "minimum_scan_seconds": 270.00000000000006
+    },
+    "count_method": "PicoHarp per-point sidecar",
+    "legacy_assumed_dwell_s": null,
+    "points_sha256": "6f1507d6cc8ed4c1b42de7774225e277f901067228fa047801c0dc20a230aed5",
+    "manifest_sha256": "e72aef8e05073d26665b8f93822e43adb15c088d07d510c6bc924166547b0487"
+  },
+  "fit": {
+    "model": "CH1=C1+A1*sin(theta)^2; CH2=C2+A2*cos(theta)^2; theta=kA*VA+kB*VB+phi",
+    "method": "Joint Poisson maximum likelihood using all recorded counts and dwell times",
+    "parameter_names": [
+      "k_alice_rad_per_v",
+      "k_bob_rad_per_v",
+      "phase_rad",
+      "amplitude_ch1_hz",
+      "background_ch1_hz",
+      "amplitude_ch2_hz",
+      "background_ch2_hz"
+    ],
+    "parameters": [
+      0.007237026729266334,
+      0.00756253639282447,
+      1.3416844309850624,
+      3403.826643435713,
+      442.3375349741734,
+      3299.9390521157,
+      536.1262121966048
+    ],
+    "covariance": [
+      [
+        1.2249785936952978e-10,
+        -5.859740234063631e-12,
+        1.3764147217974219e-11,
+        5.990628690108311e-07,
+        1.757644343208886e-07,
+        9.328042483783422e-08,
+        -5.126621035238342e-07
+      ],
+      [
+        -5.8597402340636595e-12,
+        1.2332240497650443e-10,
+        -3.538546008752158e-10,
+        1.7157287046064736e-06,
+        2.841352691133461e-07,
+        -5.73108365519775e-07,
+        -8.291323484171945e-07
+      ],
+      [
+        1.3764147217931503e-11,
+        -3.5385460087516256e-10,
+        1.748607539575578e-06,
+        -8.920444445115865e-06,
+        -2.9417621455368282e-05,
+        -2.3316970669399014e-06,
+        3.522726996446814e-05
+      ],
+      [
+        5.99062869010831e-07,
+        1.7157287046064755e-06,
+        -8.920444445101818e-06,
+        153.42894107959205,
+        -38.87040372880868,
+        -0.007596547080881955,
+        -0.014684303782767872
+      ],
+      [
+        1.7576443432088784e-07,
+        2.8413526911334814e-07,
+        -2.941762145537064e-05,
+        -38.87040372880867,
+        24.37141792965946,
+        -0.0011531238683500443,
+        -0.003302528439114671
+      ],
+      [
+        9.328042483783371e-08,
+        -5.731083655197784e-07,
+        -2.3316970669343546e-06,
+        -0.007596547080932883,
+        -0.0011531238683263818,
+        161.16751690253028,
+        -43.88783119356556
+      ],
+      [
+        -5.126621035238339e-07,
+        -8.291323484171975e-07,
+        3.5227269964466126e-05,
+        -0.01468430378274295,
+        -0.0033025284391268563,
+        -43.887831193565574,
+        27.926986903059
+      ]
+    ],
+    "covariance_note": "Local Poisson/Jacobian approximation; no drift or model-discrepancy uncertainty. Boundary amplitudes/backgrounds need care.",
+    "vpi_alice_v": 217.04995512074595,
+    "vpi_bob_v": 207.7076056500447,
+    "period_alice_v": 434.0999102414919,
+    "period_bob_v": 415.4152113000894,
+    "deviance": 6979.247177461428,
+    "degrees_of_freedom": 1793,
+    "reduced_deviance": 3.8924970314899205,
+    "poisson_gof_p_approx": 0.0,
+    "r_squared": [
+      0.9416772196333363,
+      0.9351627930361017
+    ],
+    "jacobian_rank": 7,
+    "converged_starts": 28,
+    "diagnostics": [
+      "Poisson goodness-of-fit p < 0.001: inspect residual structure, drift and excess noise; model not validated."
+    ],
+    "fit_identified": true,
+    "poisson_model_check_passed": false
+  },
+  "selected": {
+    "alice_v": [
+      172.04196978931262,
+      -152.1558560605143,
+      -43.67102325430987,
+      63.55713627106289
+    ],
+    "bob_v": [
+      72.68825125516507,
+      -31.127134592356967
+    ],
+    "predicted_ch1": [
+      [
+        0.10340933117431453,
+        0.49891316698075433
+      ],
+      [
+        0.498913168734347,
+        0.10340933119274477
+      ],
+      [
+        0.8776450982671061,
+        0.4989131696100586
+      ],
+      [
+        0.4989131718446745,
+        0.8776450982472569
+      ]
+    ],
+    "predicted_rates_hz": [
+      [
+        [
+          442.42705450451393,
+          3835.9784769917264
+        ],
+        [
+          2160.7176780596446,
+          2170.131497831107
+        ]
+      ],
+      [
+        [
+          2160.717685771622,
+          2170.1314903545053
+        ],
+        [
+          442.4270545836156,
+          3835.9784769150388
+        ]
+      ],
+      [
+        [
+          3846.0937951819487,
+          536.1944472704836
+        ],
+        [
+          2160.7176896228407,
+          2170.131486620829
+        ]
+      ],
+      [
+        [
+          2160.7176994502697,
+          2170.1314770933413
+        ],
+        [
+          3846.093795092569,
+          536.1944473571352
+        ]
+      ]
+    ],
+    "sum_squared_voltages": 64948.99212401634,
+    "fraction_rmse": 0.08010395458136477,
+    "predicted_targets_pass": true,
+    "operating_bounds": {
+      "alice": [
+        -180.0,
+        180.0
+      ],
+      "bob": [
+        -180.0,
+        180.0
+      ]
+    },
+    "optimization": "First minimize unweighted squared fraction error across all eight targets; then minimize sum(V\u00b2) across phase-equivalent wraps and common phase allocation. No trade of optical error for lower voltage.",
+    "physical_labels_confirmed": false
+  },
+  "target_ch1": [
+    [
+      0.0,
+      0.5
+    ],
+    [
+      0.5,
+      0.0
+    ],
+    [
+      1.0,
+      0.5
+    ],
+    [
+      0.5,
+      1.0
+    ]
+  ],
+  "transfer_available": true,
+  "rejection_reason": null,
+  "physical_state_labels_confirmed": false,
+  "independent_count_check_passed": false,
+  "measurement_status": "Fitted predictions; no independent verification yet",
+  "helper_sha256": "0026105c9e823d958351431871a7572b0314ef3121d2cc0ea1aa68042fb29f7d",
+  "calibration_target": "Ungated detected fractions; no background subtraction or detector-efficiency correction",
+  "predictions": [
+    {
+      "state": "S0",
+      "bob_setting": 1,
+      "alice_v": 172.0419697893,
+      "bob_v": 72.6882512552,
+      "target_ch1": 0.0,
+      "predicted_ch1": 0.1034093312,
+      "absolute_error": 0.1034093312,
+      "predicted_ch1_hz": 442.4270545045,
+      "predicted_ch2_hz": 3835.9784769917,
+      "allowed_low": 0.0,
+      "allowed_high": 0.15,
+      "prediction_within_tolerance": true,
+      "measurement_status": "MODEL PREDICTION; exact voltage pair not independently measured"
+    },
+    {
+      "state": "S0",
+      "bob_setting": 2,
+      "alice_v": 172.0419697893,
+      "bob_v": -31.1271345924,
+      "target_ch1": 0.5,
+      "predicted_ch1": 0.498913167,
+      "absolute_error": 0.001086833,
+      "predicted_ch1_hz": 2160.7176780596,
+      "predicted_ch2_hz": 2170.1314978311,
+      "allowed_low": 0.45,
+      "allowed_high": 0.55,
+      "prediction_within_tolerance": true,
+      "measurement_status": "MODEL PREDICTION; exact voltage pair not independently measured"
+    },
+    {
+      "state": "S1",
+      "bob_setting": 1,
+      "alice_v": -152.1558560605,
+      "bob_v": 72.6882512552,
+      "target_ch1": 0.5,
+      "predicted_ch1": 0.4989131687,
+      "absolute_error": 0.0010868313,
+      "predicted_ch1_hz": 2160.7176857716,
+      "predicted_ch2_hz": 2170.1314903545,
+      "allowed_low": 0.45,
+      "allowed_high": 0.55,
+      "prediction_within_tolerance": true,
+      "measurement_status": "MODEL PREDICTION; exact voltage pair not independently measured"
+    },
+    {
+      "state": "S1",
+      "bob_setting": 2,
+      "alice_v": -152.1558560605,
+      "bob_v": -31.1271345924,
+      "target_ch1": 0.0,
+      "predicted_ch1": 0.1034093312,
+      "absolute_error": 0.1034093312,
+      "predicted_ch1_hz": 442.4270545836,
+      "predicted_ch2_hz": 3835.978476915,
+      "allowed_low": 0.0,
+      "allowed_high": 0.15,
+      "prediction_within_tolerance": true,
+      "measurement_status": "MODEL PREDICTION; exact voltage pair not independently measured"
+    },
+    {
+      "state": "S2",
+      "bob_setting": 1,
+      "alice_v": -43.6710232543,
+      "bob_v": 72.6882512552,
+      "target_ch1": 1.0,
+      "predicted_ch1": 0.8776450983,
+      "absolute_error": 0.1223549017,
+      "predicted_ch1_hz": 3846.0937951819,
+      "predicted_ch2_hz": 536.1944472705,
+      "allowed_low": 0.85,
+      "allowed_high": 1.0,
+      "prediction_within_tolerance": true,
+      "measurement_status": "MODEL PREDICTION; exact voltage pair not independently measured"
+    },
+    {
+      "state": "S2",
+      "bob_setting": 2,
+      "alice_v": -43.6710232543,
+      "bob_v": -31.1271345924,
+      "target_ch1": 0.5,
+      "predicted_ch1": 0.4989131696,
+      "absolute_error": 0.0010868304,
+      "predicted_ch1_hz": 2160.7176896228,
+      "predicted_ch2_hz": 2170.1314866208,
+      "allowed_low": 0.45,
+      "allowed_high": 0.55,
+      "prediction_within_tolerance": true,
+      "measurement_status": "MODEL PREDICTION; exact voltage pair not independently measured"
+    },
+    {
+      "state": "S3",
+      "bob_setting": 1,
+      "alice_v": 63.5571362711,
+      "bob_v": 72.6882512552,
+      "target_ch1": 0.5,
+      "predicted_ch1": 0.4989131718,
+      "absolute_error": 0.0010868282,
+      "predicted_ch1_hz": 2160.7176994503,
+      "predicted_ch2_hz": 2170.1314770933,
+      "allowed_low": 0.45,
+      "allowed_high": 0.55,
+      "prediction_within_tolerance": true,
+      "measurement_status": "MODEL PREDICTION; exact voltage pair not independently measured"
+    },
+    {
+      "state": "S3",
+      "bob_setting": 2,
+      "alice_v": 63.5571362711,
+      "bob_v": -31.1271345924,
+      "target_ch1": 1.0,
+      "predicted_ch1": 0.8776450982,
+      "absolute_error": 0.1223549018,
+      "predicted_ch1_hz": 3846.0937950926,
+      "predicted_ch2_hz": 536.1944473571,
+      "allowed_low": 0.85,
+      "allowed_high": 1.0,
+      "prediction_within_tolerance": true,
+      "measurement_status": "MODEL PREDICTION; exact voltage pair not independently measured"
+    }
+  ]
+}

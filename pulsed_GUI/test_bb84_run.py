@@ -29,6 +29,7 @@ def config():
 
 
 CONSTANTS = NS(AcquisitionType=NS(FINITE="finite"),
+               LineGrouping=NS(CHAN_FOR_ALL_LINES="all_lines"),
                TaskMode=NS(TASK_VERIFY="verify", TASK_COMMIT="commit"),
                RegenerationMode=NS(DONT_ALLOW_REGENERATION="no_regen"),
                Edge=NS(RISING="rising"), Level=NS(LOW="low"))
@@ -39,7 +40,7 @@ class Task:
     def __init__(self, owner):
         self.owner = owner
         self.kind = "unknown"
-        self.ao_channels = self.co_channels = self.timing = self.out_stream = self.all = self
+        self.ao_channels = self.co_channels = self.do_channels = self.timing = self.out_stream = self.all = self
         self.triggers = NS(start_trigger=self)
         self.started = False
         self.written = 0
@@ -49,6 +50,10 @@ class Task:
     def add_ao_voltage_chan(self, path, **kwargs):
         self.kind = "ao"
         self.owner.events.append(("ao_channels", path))
+
+    def add_do_chan(self, path, **kwargs):
+        self.kind = "marker"
+        self.owner.events.append(("do_channels", path))
 
     def add_co_pulse_chan_ticks(self, path, **kw):
         self.kind = "counter"
@@ -61,6 +66,7 @@ class Task:
 
     def cfg_samp_clk_timing(self, rate, **kwargs):
         self.samp_clk_rate = rate
+        self.samp_clk_src = kwargs.get("source", "")
         self.cfg_implicit_timing(**kwargs)
 
     def cfg_implicit_timing(self, **kwargs):
@@ -76,6 +82,8 @@ class Task:
             raise RuntimeError("resource reserved")
         if self.owner.fail == "coercion" and self.kind == "ao" and mode == "commit":
             self.samp_clk_timebase_div += 1
+        if self.owner.fail == "marker_route" and self.kind == "marker" and mode == "commit":
+            self.samp_clk_src = "/Dev1/WrongClock"
 
     def start(self):
         self.owner.events.append(("start", self.kind))
@@ -85,6 +93,8 @@ class Task:
             raise RuntimeError("AO start failure")
 
     def is_task_done(self):
+        if self.owner.fail == "marker_underrun" and self.kind == "marker":
+            raise RuntimeError("DO buffer underflow")
         if self.owner.fail == "underrun" and self.kind == "ao":
             raise RuntimeError("AO buffer underflow")
         self.done_checks += 1
@@ -103,6 +113,9 @@ class Task:
         return complete
 
     def write(self, values, **kwargs):
+        if self.kind == "marker":
+            self.owner.events.append(("marker_low", values))
+            return 1
         self.owner.events.append(("zero", tuple(values)))
         if self.owner.fail == "zero":
             raise RuntimeError("zero failed")
@@ -145,6 +158,18 @@ class Writer:
         if task.owner.fail == "short_write":
             return count - 1
         return count
+
+    def write_many_sample_port_byte(self, values, timeout):
+        raise RuntimeError('DAQmx -200565: Minimum Write Size (In Bits): 32')
+
+    def write_many_sample_port_uint32(self, values, timeout):
+        assert values.dtype == np.uint32 and values.ndim == 1
+        assert values.flags.c_contiguous and np.all((values == 0) | (values == 1))
+        if self.stream.owner.fail == "marker_write":
+            return len(values)-1
+        self.stream.owner.events.append(("marker_write", values.tolist()))
+        self.stream.written += len(values)
+        return len(values)
 
 
 class API:
@@ -208,12 +233,45 @@ class RunTests(unittest.TestCase):
                     patch.object(run.photon, "rates", return_value={"sync_hz": 2000000, "input_hz": [0, 0]}), \
                     contextlib.redirect_stdout(io.StringIO()):
                 code = run.run(cfg, stop, daq=daq, system=SYSTEM, constants=CONSTANTS,
-                               api_factory=lambda _: api, writer_factory=Writer)
+                               api_factory=lambda _: api, writer_factory=Writer, marker_writer_factory=Writer)
             folder = next(Path(temp).iterdir())
             record = json.loads((folder / "session.json").read_text())
             raw = json.loads((folder / "tttr/metadata.json").read_text()) if (folder / "tttr/metadata.json").exists() else None
             data = (folder / "tttr/events.t3raw").read_bytes() if (folder / "tttr/events.t3raw").exists() else None
         return code, record, raw, data, daq, api
+
+    def test_marker_arm_clock_buffer_counts_and_cleanup(self):
+        import bb84_markers as markers
+        code, record, raw, _, daq, api = self.session(changes={"warmup_count": 8, "markers": {"mode": markers.COMMISSION}})
+        self.assertEqual(code, 0)
+        self.assertEqual(record["marker_samples_generated"], 24)
+        self.assertTrue(record["marker_low_on_exit"])
+        self.assertEqual(raw["markers"], record["plan"]["markers"])
+        starts = [event for event in daq.events if event[0] == "start"]
+        self.assertEqual(starts, [("start", "counter"), ("start", "marker"), ("start", "ao")])
+        output = sum((event[1] for event in daq.events if event[0] == "marker_write"), [])
+        self.assertEqual(np.flatnonzero(output).tolist(), [4, 8, 16, 23])
+        self.assertIn(("SetMarkerEnable", 0, 1, 0, 0, 0), api.calls)
+        self.assertLess(daq.events.index(("stop", "counter")), daq.events.index(("stop", "marker")))
+
+    def test_marker_route_and_short_write_fail_before_output(self):
+        import bb84_markers as markers
+        for failure in ("marker_route", "marker_write"):
+            with self.subTest(failure=failure):
+                code, record, _, _, daq, _ = self.session(failure, {"warmup_count": 8, "markers": {"mode": markers.COMMISSION}})
+                self.assertEqual(code, 1)
+                self.assertFalse(record["complete"])
+                self.assertFalse(any(event[0] == "start" for event in daq.events))
+
+    def test_marker_underflow_invalidates_run_and_stops_counter_first(self):
+        import bb84_markers as markers
+        code, record, raw, _, daq, _ = self.session("marker_underrun", {"warmup_count": 8, "markers": {"mode": markers.COMMISSION}})
+        self.assertEqual(code, 1)
+        self.assertFalse(record["complete"])
+        self.assertFalse(raw["complete"])
+        self.assertIn("DO buffer underflow", record["error"])
+        self.assertTrue(record["marker_low_on_exit"])
+        self.assertLess(daq.events.index(("stop", "counter")), daq.events.index(("stop", "marker")))
 
     def test_plan_quantizes_both_clocks_without_loading_hardware(self):
         cfg = config()

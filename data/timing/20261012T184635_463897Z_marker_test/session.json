@@ -1,0 +1,124 @@
+{
+  "schema": "qkd-marker-test-session-v1",
+  "status": "completed",
+  "complete": true,
+  "settings": {
+    "action": "Record short TCSPC test",
+    "plan": {
+      "requested_rate_hz": 750000.0,
+      "realized_rate_hz": 751879.6992481203,
+      "period_ticks": 133,
+      "period_ns": 1330,
+      "requested_delay_ns": 900.0,
+      "delay_ticks": 90,
+      "nominal_delay_ns": 900,
+      "requested_high_ns": 100.0,
+      "high_ticks": 10,
+      "low_ticks": 123,
+      "high_ns": 100,
+      "duty_cycle": 0.07518796992481203,
+      "hold_pulses": 1,
+      "level_dwell_us": 1.33,
+      "ab_pattern_hz": 375939.84962406015,
+      "target_hv": [
+        [
+          150.0,
+          -150.0
+        ],
+        [
+          -150.0,
+          150.0
+        ]
+      ],
+      "daq_levels": [
+        [
+          -7.5,
+          7.5
+        ],
+        [
+          7.5,
+          -7.5
+        ]
+      ],
+      "assumed_hv_gain": -20.0,
+      "samples_per_channel": 32,
+      "timebase_hz": 100000000,
+      "device": "Dev1",
+      "start_trigger": "/Dev1/ao/SampleClock",
+      "counter": "Dev1/ctr0",
+      "terminal": "/Dev1/PFI12",
+      "mode": "continuous onboard regenerated scope pattern; not a BB84 sequence",
+      "delay_note": "Nominal delay from AO sample clock to NI trigger; scope verification required.",
+      "marker_enabled": true,
+      "marker_sample": 1,
+      "marker_spacing_samples": 32,
+      "show_command_preview": false,
+      "marker_note": "P0.0 rises at an A\u2192B voltage command and stays high for one AO sample."
+    },
+    "plot_dpi": 150,
+    "output": "C:\\Users\\nanometa\\Documents\\QKD_Code\\data\\timing",
+    "note": "",
+    "ph330": {
+      "device_index": 0,
+      "serial": "1050578",
+      "binning": 6,
+      "laser_hz": 751879.6992481203,
+      "sync_divider": 1,
+      "sync": {
+        "mode": "edge",
+        "edge": "falling",
+        "level_mv": -60,
+        "offset_ps": 0
+      },
+      "detectors": [
+        {
+          "mode": "edge",
+          "edge": "rising",
+          "level_mv": 200,
+          "offset_ps": 0,
+          "channel": 0
+        },
+        {
+          "mode": "edge",
+          "edge": "rising",
+          "level_mv": 200,
+          "offset_ps": 4500,
+          "channel": 1
+        }
+      ]
+    },
+    "dll": "C:\\Program Files\\PicoQuant\\UniHarp\\PH330Lib.dll",
+    "record_seconds": 1.0,
+    "repeats": 3,
+    "warmup_seconds": 1.0,
+    "max_raw_bytes": 16777216,
+    "wiring": "Normal detectors (marker spacing only)",
+    "function_generator_note": "",
+    "profile": {
+      "device": "Dev1",
+      "period_ticks": 133,
+      "delay_ticks": 90,
+      "high_ticks": 10,
+      "timebase_hz": 100000000,
+      "serial": "1050578",
+      "sync": {
+        "mode": "edge",
+        "edge": "falling",
+        "level_mv": -60,
+        "offset_ps": 0
+      },
+      "binning": 6,
+      "function_generator_settings": "",
+      "route": "AO SampleClock rising -> P0.0 rising; Ctr0/PFI12 -> FG -> BDL -> PH330 SYNC",
+      "sync_divider": 1,
+      "marker_holdoff_ns": 0
+    },
+    "evidence": null
+  },
+  "runs": [
+    "20261012T184635_464757Z_scope",
+    "20261012T184641_612840Z_scope",
+    "20261012T184647_717401Z_scope"
+  ],
+  "raw_bytes": 301208
+}

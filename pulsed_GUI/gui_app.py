@@ -18,6 +18,7 @@ import eom_voltage_sweep as sweep
 import g2_measurement as g2
 import eom_calibration as calibration
 import recent_data
+import timing_marker_controls as timing
 from figure_options import FIELD as DPI_FIELD
 from measurement_metadata import FORM as MEASUREMENT_FORM, read as measurement_context
 
@@ -33,15 +34,15 @@ TOOLS = {
     bb84.ORDERED: "bb84_controls",
     bb84.RANDOM: "bb84_controls",
     "CH1 lifetime": "ph330_lifetime",
-    "EOM timing scope": "eom_timing_scope",
+    "EOM timing scope": "timing_marker_controls",
     "Connection test": "ph330",
     "Laser clock": "laser_clock",
     "Laser clock + EOM": "laser_clock_eom",
     "G2 acquisition": "ph330_acquire",
 }
 DISPLAY_NAMES = {LIVE_COUNTS_TOOL: "Live alignment", "Pulsed polarization": "Polarization matrix",
-                 "CH1 lifetime": "Arrival time / lifetime (CH1)", "EOM timing scope": "EOM timing on scope",
-                 "Connection test": "Device connection", "Laser clock": "Advanced: laser clock only",
+                 "CH1 lifetime": "Arrival time / lifetime (CH1)", "EOM timing scope": "EOM / timing marker test",
+                 "Connection test": "Device connection", "Laser clock": "Laser clock only",
                  "Laser clock + EOM": "Advanced: clock + static voltages", "G2 acquisition": "Advanced: two-channel T3"}
 
 
@@ -50,6 +51,7 @@ def display_name(tool):
 
 
 def internal_name(label):
+    label = {"EOM timing on scope": "EOM timing scope", "Advanced: laser clock only": "Laser clock"}.get(label, label)
     return next((key for key in TOOLS if display_name(key) == label), label)
 
 # name, visible label (with units), initial value, optional choices or file picker.
@@ -71,21 +73,7 @@ SPECS = {
     bb84.RANDOM: bb84.form("random"),
     LIVE_COUNTS_TOOL: LIVE_COUNTS_FORM,
     "Pulsed polarization": POLARIZATION_FORM,
-    "EOM timing scope": [
-        ("action", "Action", "Check settings", ["Check settings", "Output timing pattern"]),
-        ("device", "NI device (USB-6351)", "Dev1", None),
-        ("frequency-hz", "Laser trigger / AO sample rate (Hz)", "500000", None),
-        ("delay-ns", "NI trigger delay after AO sample clock (ns; nominal)", "1200", None),
-        ("high-ns", "Positive laser-trigger pulse width (ns)", "100", None),
-        ("hold-pulses", "Laser pulses per voltage level (20 = long hold; 1 = every pulse)", "20", None),
-        ("alice-a-v", "Alice / AO0 level A: EOM target V (DAQ = -V/20)", "0", None),
-        ("alice-b-v", "Alice / AO0 level B: enter calibrated EOM target V", "0", None),
-        ("bob-a-v", "Bob / AO1 level A: EOM target V (DAQ = -V/20)", "0", None),
-        ("bob-b-v", "Bob / AO1 level B: same as A to hold Bob fixed", "0", None),
-        ("seconds", "Duration (s; 0 = run until Stop)", "0", None),
-        ("output", "Timing data directory", str(ROOT.parent / "data" / "timing"), "directory"),
-        ("note", "Scope settings / measured settling / notes", "", None),
-    ],
+    "EOM timing scope": timing.FORM,
     "Laser clock + EOM": [
         ("action", "Action", "Check settings", ["Check settings", "Output clock + EOM"]),
         ("device", "NI device", "Dev1", None),
@@ -152,7 +140,7 @@ HELP = {
     bb84.RANDOM: "Alice's four states and Bob's two bases are chosen independently each trial using OS randomness. " + bb84.HELP,
     LIVE_COUNTS_TOOL: LIVE_COUNTS_HELP,
     "Pulsed polarization": POLARIZATION_HELP,
-    "EOM timing scope": "USB-6351 buffered AO0/AO1 + delayed Ctr0/PFI12. Enter calibrated A/B targets; all defaults are 0 V. Uses -20 amplifier gain. Monitor is HV/20 into high impedance. TTL OUT and TRG OUT were reported aligned within ~1 ns on this bench. Stop, edit, Run to adjust. Stop returns AO to 0 V. Close other AO/clock tools.",
+    "EOM timing scope": timing.HELP,
     "Laser clock + EOM": "Manual alignment: Ctr0/PFI12 clock plus static AO0/AO1 biases. EOM targets ±200 V using the existing −20 gain convention. Apply EOM keeps the clock running; Apply clock briefly stops/restarts it. Stop returns both AO channels to 0 V.",
     "Connection test": "Close UniHarp first. Find devices opens/closes the PicoHarp without starting a measurement.",
     "Laser clock": "Ctr0 → PFI12. Check on an oscilloscope first. The DAQ/laser impedance interface is still required. Duration is approximate.",
@@ -165,7 +153,16 @@ def defaults(tool):
     return {key: value for key, _, value, _ in SPECS[tool]}
 
 
-def field_group(key):
+def field_group(key, tool=None):
+    if tool == timing.TOOL:
+        if key.startswith('reference-') or key == 'marker-every':
+            return 'Timing markers'
+        if key in ('record-seconds', 'record-repeats', 'warmup-s', 'max-raw-mib'):
+            return 'Recording'
+    if key.startswith("marker-"):
+        return "Timing markers"
+    if key == "calibration-mode":
+        return "Voltages"
     if key.startswith(("alice-", "bob-", "eom1-", "eom2-")) or key in ("hv-ch1", "rl-ch1", "labels-confirmed", "control-eoms"):
         return "Voltages"
     if key.startswith(("sync-", "ch1-", "ch2-")) or key in ("dll", "device-index", "serial", "binning"):
@@ -183,6 +180,19 @@ def initial_settings(tool, settings):
     """Migrate old profiles and seed new modes without overwriting saved choices."""
     saved = settings.get(tool, settings.get(bb84.LEGACY_NAMES.get(tool), {}))
     saved = dict(saved) if isinstance(saved, dict) else {}
+    if tool == timing.TOOL:
+        if saved.get("action") == "Output timing pattern":
+            saved["action"] = timing.SCOPE
+        previous = settings.get(bb84.ORDERED, settings.get("Pulsed polarization", {}))
+        if isinstance(previous, dict):
+            for key, *_ in timing.PH_FIELDS:
+                if key not in saved and key in previous:
+                    saved[key] = previous[key]
+    if tool in bb84.MODES and "marker-mode" in saved and "marker-use" not in saved:
+        from bb84_markers import OFF
+        saved["marker-use"] = "No" if saved["marker-mode"] == OFF else "Yes"
+    if tool == calibration.TOOL and saved.get("action") == "Analyze sweep":
+        saved["action"] = calibration.FIT
     if tool in bb84.MODES and saved.get("action") == "Prepare sequence only":
         saved["action"] = bb84.PREPARE
     if tool == calibration.TOOL and saved.get("output"):
@@ -217,6 +227,46 @@ def initial_settings(tool, settings):
                     saved[f"alice-{label.lower()}-v"] = previous[f"alice-{i}-v"]
             saved["labels-confirmed"] = "No"  # Bob's physical basis assignment still needs confirmation.
     return saved
+
+
+def migrate_experiment_profiles(settings):
+    """One-time repair of confirmed stale defaults; retain custom voltages/settings."""
+    if settings.get("__bb84_audit_20261007__"):
+        return []
+    messages = []
+    for tool, profile in settings.items():
+        if not isinstance(profile, dict) or tool.startswith("__"):
+            continue
+        for ch in ("ch1", "ch2"):
+            if (profile.get(ch+"-mode", "edge") == "edge"
+                    and profile.get(ch+"-level-mv") in ("200", "200.0", 200)
+                    and profile.get(ch+"-edge") == "falling"):
+                profile[ch+"-edge"] = "rising"
+                messages.append(f"{tool}: restored {ch.upper()} +200 mV rising edge per confirmed wiring.")
+    from calibration_transfer import context, form_updates
+    previous = settings.get("Pulsed polarization", {})
+    try:
+        imported = context(previous)
+    except (ValueError, KeyError, TypeError):
+        imported = None
+    if imported and imported["current_voltages_match_import"]:
+        updates = form_updates(imported["imported_candidate"], False)
+        voltage_keys = [k for k in updates if k.endswith("-v")]
+        for tool in bb84.MODES:
+            profile = initial_settings(tool, settings)
+            if profile.get("calibration-transfer"):
+                continue
+            try:
+                old = all(float(profile[k]) == float(defaults(tool)[k]) for k in voltage_keys)
+                same = all(float(profile[k]) == float(updates[k]) for k in voltage_keys)
+            except (KeyError, ValueError, TypeError):
+                old = same = False
+            if old or same:
+                profile.update(updates, **{"calibration-mode": "Imported calibration"})
+                settings[tool] = profile
+                messages.append(f"{tool}: adopted the already selected polarization calibration; labels remain provisional.")
+    settings["__bb84_audit_20261007__"] = messages or True
+    return messages
 
 
 def required(values, key):
@@ -271,12 +321,9 @@ def arguments(tool, values):
         args += ["--note", values["note"]]
         if action in ("Output clock", "Output clock + EOM"):
             args.append("--run")
-    elif tool == "EOM timing scope":
-        keys = ["device", "frequency-hz", "delay-ns", "high-ns", "hold-pulses",
-                "alice-a-v", "alice-b-v", "bob-a-v", "bob-b-v", "seconds", "output"]
-        args += ["--note", values["note"]]
-        if action == "Output timing pattern":
-            args.append("--run")
+    elif tool == timing.TOOL:
+        timing.settings(values)
+        return []
     elif tool == "G2 acquisition":
         keys = ["dll", "seconds", "output", "plot-dpi"]
         if action == "Record" and values["preview"] == "Yes":
@@ -303,6 +350,10 @@ def arguments(tool, values):
 
 
 def execute(tool, values, stop_event, commands=None, samples=None, emit=None):
+    if tool == timing.TOOL:
+        if stop_event.is_set():
+            return 130
+        return timing.main(values, stop_event)
     if tool == calibration.TOOL:
         return calibration.main(values, stop_event)
     if tool == g2.TOOL:
@@ -372,6 +423,7 @@ class App:
                 self.settings = saved
         except (OSError, ValueError):
             pass
+        migration_messages = migrate_experiment_profiles(self.settings)
         # One-time adoption of the requested native-bin display. Later user
         # changes to rebinning remain remembered normally.
         if self.settings.get("__native_polarization_bins__") != 1:
@@ -426,6 +478,8 @@ class App:
         self.vars = {}
         self.current_tool = tool
         self.build_form()
+        for message in migration_messages:
+            self.write(message + "\n")
         root.protocol("WM_DELETE_WINDOW", self.close)
         self.poll_id = root.after(100, self.poll)
 
@@ -471,9 +525,9 @@ class App:
             self.livebar.pack_forget()
         self.help.configure(text=HELP[self.current_tool])
         saved = initial_settings(self.current_tool, self.settings)
-        groups = {field_group(spec[0]) for spec in SPECS[self.current_tool]}
+        groups = {field_group(spec[0], self.current_tool) for spec in SPECS[self.current_tool]}
         rows = {}
-        for group in ("Run", "Voltages", "PicoHarp", "Analysis", "Files"):
+        for group in ("Run", "Voltages", "Timing markers", "Recording", "PicoHarp", "Analysis", "Files"):
             if group not in groups:
                 continue
             page = ttk.Frame(self.tabs)
@@ -491,7 +545,7 @@ class App:
             self.pages[group] = (canvas, form)
             rows[group] = 0
         for key, label, initial, kind in SPECS[self.current_tool]:
-            group = field_group(key)
+            group = field_group(key, self.current_tool)
             canvas, form = self.pages[group]
             row = rows[group]
             rows[group] += 1
@@ -527,14 +581,15 @@ class App:
             self.vars["calibration-transfer"] = tk.StringVar(value=str(saved.get("calibration-transfer", "")))
             _, form = self.pages["Voltages"]
             row = rows["Voltages"] * 2
-            button = ttk.Button(form, text="Paste calibration (six voltages)", command=self.paste_calibration)
+            button = ttk.Button(form, text="Paste calibration → polarization + both BB84 tools", command=self.paste_calibration)
             button.grid(row=row, column=0, sticky="w", pady=(12, 4))
             self.inputs.append((button, "normal"))
-            button = ttk.Button(form, text="Load latest app calibration", command=lambda: self.load_calibration(self.current_tool))
+            button = ttk.Button(form, text="Load latest calibration → all three tools", command=lambda: self.load_calibration(self.current_tool))
             button.grid(row=row+2, column=0, sticky="w", pady=4)
             self.inputs.append((button, "normal"))
             ttk.Label(form, text="Copy the final JSON output from CalibrateEOMVoltages.ipynb.\n"
-                                "Fills this form only; imported physical labels remain provisional.",
+                                "Imports fill polarization and BOTH BB84 profiles. Manual edits stay local.\n"
+                                "Imported physical labels remain provisional; Record checks voltage provenance.",
                       wraplength=510).grid(row=row+1, column=0, columnspan=2, sticky="w")
         def workflow_button(text, command):
             button = ttk.Button(self.workflowbar, text=text, command=command)
@@ -555,10 +610,30 @@ class App:
             self.vars["internal-ready"].set("No")
         if "manual-ready" in self.vars:
             self.vars["manual-ready"].set("No")
-        for key in ("action", "source", "timing-profile", "sync-mode", "ch1-mode", "ch2-mode", "gate", "alice-labels", "control-eoms"):
+        if "reference-ready" in self.vars:
+            self.vars["reference-ready"].set("No")
+        self.marker_status = None
+        if self.current_tool in bb84.MODES:
+            self.marker_status = tk.StringVar()
+            ttk.Label(self.pages["Timing markers"][1], textvariable=self.marker_status,
+                      wraplength=510).grid(row=rows["Timing markers"]*2, column=0, columnspan=3, sticky="w", pady=12)
+            for key in ("marker-use", "frequency-hz", "delay-ns", "high-ns", "device", "serial", "binning", "function-generator-note",
+                        "sync-mode", "sync-edge", "sync-level-mv", "sync-zero", "sync-offset-ns"):
+                if key in self.vars:
+                    self.vars[key].trace_add("write", lambda *_: self.update_marker_status())
+        for key in ("action", "source", "timing-profile", "marker-use", "reference-input", "sync-mode", "ch1-mode", "ch2-mode", "gate", "alice-labels", "control-eoms"):
             if key in self.vars:
                 self.vars[key].trace_add("write", lambda *_: self.controls_changed())
         self.controls_changed()
+
+    def update_marker_status(self):
+        if self.marker_status is None:
+            return
+        try:
+            markers = bb84.settings(self.values(), bb84.MODES[self.current_tool])["markers"]
+            self.marker_status.set(markers.get("calibration_status", "Timing marker disabled; absolute origin remains unverified."))
+        except (ValueError, KeyError, OSError) as exc:
+            self.marker_status.set(f"Reference status pending valid settings: {exc}")
 
     def paste_calibration(self):
         if self.running:
@@ -571,18 +646,30 @@ class App:
             self.write(f"Calibration not pasted: {exc}\n")
 
     def apply_calibration(self, data):
-        from calibration_transfer import form_updates
+        from calibration_transfer import form_updates, publish
         updates = form_updates(data, self.current_tool == "Pulsed polarization")
         if any(key not in self.vars for key in updates):
             raise ValueError("Select Polarization matrix or one of the BB84 tools before loading.")
         for key, value in updates.items():
             self.vars[key].set(value)
+        if "calibration-mode" in self.vars:
+            self.vars["calibration-mode"].set("Imported calibration")
         self.remember()
-        self.write("Loaded six EOM target voltages into this form; no hardware changed.\n"
-                   f"Source: {data.get('source', 'unspecified')}\n"
-                   f"Held-out check passed: {data.get('heldout_count_check_passed', False)}; "
-                   f"independent check passed: {data.get('independent_count_check_passed', False)}.\n"
+        # Preserve unrelated saved acquisition/analysis parameters in every tool.
+        for tool in (bb84.ORDERED, bb84.RANDOM):
+            self.settings[tool] = initial_settings(tool, self.settings)
+        publish(self.settings, data)
+        self.remember()
+        checks = (f"Predicted targets passed: {data.get('predicted_targets_passed')}; "
+                  f"Poisson model check passed: {data.get('poisson_model_check_passed')}.\n"
+                  if data.get("method") == "joint-sinusoidal-poisson-v2" else
+                  "Legacy calibration method; use EOM calibration analysis / Fit sweep for the physical fit.\n")
+        self.write("Loaded six EOM target voltages into polarization, Ordered BB84 and Randomized BB84; no hardware changed.\n"
+                   f"Source: {data.get('source', 'unspecified')}\n" + checks +
+                   f"Independent check passed: {data.get('independent_count_check_passed', False)}.\n"
                    "H/R/V/L names remain provisional; detector assignments/label confirmation reset.\n")
+        for diagnostic in data.get("fit_diagnostics", []):
+            self.write(f"Fit diagnostic: {diagnostic}\n")
 
     def load_calibration(self, target):
         if self.running:
@@ -590,6 +677,15 @@ class App:
         from calibration_transfer import parse
         try:
             path = recent_data.latest("calibration", self.settings, ROOT.parent)
+            fit_path = recent_data.latest("fit_report", self.settings, ROOT.parent)
+            if fit_path:
+                report = recent_data.read(fit_path)
+                if not report.get("transfer_available"):
+                    raise ValueError(f"Latest fit has no accepted candidate: {fit_path}. Review its diagnostics; an older result was not loaded.")
+                # A newly fitted source supersedes a remembered older candidate.
+                previous = recent_data.read(path) if path else {}
+                if previous.get("analysis_report") != str(fit_path.resolve()):
+                    path = fit_path.parent / "calibration_for_app.json"
             if path is None:
                 raise ValueError("No completed app calibration found. Run EOM calibration analysis first.")
             data = parse(path.read_text(encoding="utf-8"))
@@ -620,6 +716,7 @@ class App:
             return
         self.tool.set(calibration.TOOL)
         self.change_tool()
+        self.vars["action"].set(calibration.FIT)
         self.use_recent_input("csv")
 
     def analyze_latest(self):
@@ -639,6 +736,12 @@ class App:
         if self.current_tool in bb84.MODES:
             for key in self.fields:
                 enable(key, True)
+        if self.current_tool == calibration.TOOL:
+            verifying = self.vars["action"].get() == calibration.VERIFY
+            verification_keys = {"fit-report", "verification-folder", "confidence"}
+            common = {"action", "output", "note", "plot-dpi"}
+            for key in self.fields:
+                enable(key, key in common or (key in verification_keys) == verifying)
         if self.current_tool == LIVE_COUNTS_TOOL:
             source = self.vars["source"].get()
             if source != self._last_source:
@@ -691,6 +794,7 @@ class App:
                 self.vars["delay-ns"].set(str(delay))
             enable("frequency-hz", profile == "Custom")
             enable("delay-ns", profile == "Custom")
+            self.update_marker_status()
         for prefix in ("sync", "ch1", "ch2"):
             if prefix + "-mode" in self.vars:
                 cfd = self.vars[prefix + "-mode"].get() == "cfd"
@@ -709,6 +813,28 @@ class App:
                 # that analysis reads saved acquisition parameters, not these.
                 if key != "action" and ((field_group(key) == "Analysis") != analyzing):
                     enable(key, False)
+        if self.current_tool == timing.TOOL:
+            action = self.vars["action"].get()
+            analyzing = action in (timing.ANALYZE, timing.PUBLISH)
+            recording = action == timing.RECORD
+            loopback = self.vars["reference-input"].get() == timing.LOOPBACK
+            recording_keys = {item[0] for item in timing.PH_FIELDS} | {"record-seconds", "record-repeats", "warmup-s", "max-raw-mib", "reference-input"}
+            for key in self.fields:
+                active = key in ("action", "folder", "plot-dpi") if analyzing else key != "folder"
+                if not analyzing:
+                    if key in recording_keys:
+                        active = recording
+                    elif key.startswith("reference-"):
+                        active = recording and loopback
+                    elif key == "seconds":
+                        active = not recording
+                    if key.startswith("ch2-") and loopback:
+                        active = False
+                    if key.endswith("-zero"):
+                        active = active and self.vars[key.removesuffix("-zero")+"-mode"].get() == "cfd"
+                    if key.endswith("-edge"):
+                        active = active and self.vars[key.removesuffix("-edge")+"-mode"].get() == "edge"
+                enable(key, active)
 
     def browse(self, var, kind, key=""):
         self.remember()
@@ -768,7 +894,7 @@ class App:
             self.apply_clock_button.configure(state="normal")
         self.folder_button.configure(state="disabled")
         self.plot_button.configure(state="disabled")
-        can_stop = values.get("action") in ("Analyze sweep", "Run sweep", "Record", "Prepare sequence only", "Output clock", "Output clock + EOM", "Output timing pattern", "Start live controls") or (tool == g2.TOOL and values.get("action") == "Analyze saved run")
+        can_stop = tool == timing.TOOL or values.get("action") in (calibration.FIT, calibration.VERIFY, "Analyze sweep", "Run sweep", "Record", bb84.PREPARE, "Output clock", "Output clock + EOM", "Output timing pattern", "Start live controls") or (tool == g2.TOOL and values.get("action") == "Analyze saved run")
         self.stop_button.configure(state="normal" if can_stop else "disabled")
         self.status.set("Running…")
         self.write(f"\n--- {tool}: {values.get('action', 'Analyze')} ---\n")
@@ -892,11 +1018,14 @@ class App:
             self.run_artifacts["sweep"] = path
         elif prefix == "Calibration transfer: ":
             self.run_artifacts["calibration"] = path
+        elif prefix == "Calibration result: ":
+            self.run_artifacts["fit_report"] = path
         elif prefix in ("Run record: ", "Acquisition record: "):
             family = {"Pulsed polarization": "polarization", g2.TOOL: "g2",
+                      timing.TOOL: "timing",
                       "CH1 lifetime": "lifetime", "G2 acquisition": "preview",
                       bb84.ORDERED: "bb84_ordered", bb84.RANDOM: "bb84_random"}.get(self.current_tool)
-            if family and path.name in ("metadata.json", "session.json"):
+            if family and path.name in (("session.json",) if family == "timing" else ("metadata.json", "session.json")):
                 self.run_artifacts[family] = path.parent
 
     def open_plots(self):

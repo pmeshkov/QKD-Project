@@ -10,9 +10,10 @@ Close UniHarp before connecting the PicoHarp. Stop other programs that own AO0/A
 | --- | --- | --- |
 | Align beams, adjust EOM biases and laser rate | Live alignment | CH1/CH2/SYNC rates and bounded scrolling traces; no run data saved |
 | Calibrate EOM voltages without moving detector cables | EOM calibration sweep | Notebook-compatible N × N CSV; [instructions](pulsed_GUI/EOM_CALIBRATION_SWEEP.md) |
-| Extract voltages from the sweep and load measurement forms | EOM calibration analysis | Measured-grid candidates, uncertainty checks, diagnostic plots and six-voltage handoff; [instructions](pulsed_GUI/EOM_CALIBRATION_ANALYSIS.md) |
+| Extract voltages from the sweep and load measurement forms | EOM calibration analysis | Joint sinusoidal fit, minimum-voltage candidates, independent verification and six-voltage handoff; [instructions](pulsed_GUI/EOM_CALIBRATION_ANALYSIS.md) |
 | Measure two-detector correlations, pulsed or CW | Pulsed / CW g2 | Full raw TTTR, adjustable delay histogram and peak-area/CW normalization; [instructions](pulsed_GUI/G2.md) |
-| Check EOM settling and trigger phase on the scope | EOM timing on scope | Repeating buffered AO pattern and delayed PFI12 pulses |
+| Check EOM settling and marker/laser phase | EOM / timing marker test | Scope-only pattern, bounded short T3 tests and reference calibration; [guide](pulsed_GUI/EOM_TIMING_SCOPE.md) |
+| Output a laser trigger clock only | Laser clock only | Configurable Ctr0/PFI12 clock |
 | Measure the static polarization baseline | Polarization matrix | Eight voltage settings, sixteen arrival histograms and count/probability matrices |
 | Test pulse-by-pulse state ordering | Ordered BB84 | Known Alice sequence, Bob basis sequence and raw T3 recording; bench commissioning |
 | Acquire randomized protocol data | Randomized BB84 | Independent Alice/Bob choices, saved trial sequence and raw T3 recording; bench commissioning |
@@ -21,6 +22,13 @@ Close UniHarp before connecting the PicoHarp. Stop other programs that own AO0/A
 The pulse-by-pulse modes require bench validation of the **NI trial index to PicoHarp T3 index relationship**. A first detection or a discarded warm-up interval does not by itself establish that origin. Treat recordings without a verified origin as commissioning data. Randomized acquisition does not by itself certify a secure key; reconciliation and privacy amplification belong to the downstream processing workflow.
 
 See [BB84 acquisition instructions](pulsed_GUI/BB84.md) for the new modes, saved sequence format, short first run and remaining synchronization check.
+
+Optional hardware markers now have a dedicated **Timing markers** tab in both
+BB84 tools with one **Use timing marker: Yes/No** setting. Calibrate in
+**EOM / timing marker test**; matching saved references load automatically.
+Read the [wiring and commissioning guide](docs/BB84_TIMING_MARKERS.md)
+before enabling them. It also documents the corrected randomized voltage
+profile and CH1 trigger edge; old recordings retain their original settings.
 
 The calibration path now stays within the app: **EOM calibration sweep → Analyze
 last completed sweep → Run → Load last completed result into a measurement**.

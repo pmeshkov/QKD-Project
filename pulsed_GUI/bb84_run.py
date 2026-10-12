@@ -24,6 +24,7 @@ import numpy as np
 import bb84_sequence as sequence
 import eom_timing_scope as timing
 import ph330_acquire as photon
+import bb84_markers as markers
 from ph330 import PH330, DEFAULT_DLL
 from record_io import save_json as _save
 
@@ -77,6 +78,14 @@ def prepare_plan(cfg):
                 estimated_sequence_bytes=16 * total + 2 * trials,
                 random_choices_note="OS cryptographic randomness; no repeated random waveform"
                                     if cfg["mode"] == "random" else "Ordered commissioning pattern")
+    plan["markers"] = markers.make_plan(cfg.get("markers", {}), plan)
+    reference = plan['markers'].get('reference')
+    if reference:
+        from marker_reference import profile
+        current = profile(plan['device'],plan['period_ticks'],plan['delay_ticks'],plan['high_ticks'],
+                          ph,(plan.get('trigger_chain') or {}).get('function_generator_settings',''))
+        if reference['profile'] != current:
+            raise ValueError('Marker reference does not match the requested hardware timing.')
     return plan
 
 
@@ -108,9 +117,20 @@ def _configure_ni(daq, system, constants, plan, tasks):
                                  samps_per_chan=plan["samples_per_channel"])
     co.triggers.start_trigger.cfg_dig_edge_start_trig(plan["start_trigger"],
                                                     trigger_edge=constants.Edge.RISING)
-    for task in (ao, co):
+    if plan["markers"]["enabled"]:
+        do = daq.Task()
+        tasks["marker"] = do
+        do.do_channels.add_do_chan(plan["markers"]["line"],
+                                   line_grouping=constants.LineGrouping.CHAN_FOR_ALL_LINES)
+        do.timing.cfg_samp_clk_timing(plan["realized_rate_hz"], source=plan["markers"]["clock"],
+                                     active_edge=constants.Edge.RISING,
+                                     sample_mode=constants.AcquisitionType.FINITE,
+                                     samps_per_chan=plan["samples_per_channel"])
+        do.out_stream.output_buf_size = plan["buffer_samples"]
+        do.out_stream.regen_mode = constants.RegenerationMode.DONT_ALLOW_REGENERATION
+    for task in tasks.values():
         task.control(constants.TaskMode.TASK_VERIFY)
-    for task in (ao, co):
+    for task in tasks.values():
         task.control(constants.TaskMode.TASK_COMMIT)
     readback = dict(product_type=device.product_type, serial_number=device.dev_serial_num,
                     ao_rate_hz=ao.timing.samp_clk_rate,
@@ -138,23 +158,38 @@ def _configure_ni(daq, system, constants, plan, tasks):
             or readback["counter_high_ticks"] != plan["high_ticks"]
             or readback["counter_low_ticks"] != plan["low_ticks"]):
         raise RuntimeError("DAQmx readback differs from planned finite timing; outputs not started.")
+    if "marker" in tasks:
+        do = tasks["marker"]
+        readback["marker"] = dict(line=plan["markers"]["line"], clock=do.timing.samp_clk_src,
+                                  write_sample_bits=32,
+                                  samples=do.timing.samp_quant_samp_per_chan,
+                                  regen_mode=str(do.out_stream.regen_mode))
+        if (do.timing.samp_clk_src.strip("/").lower() != plan["markers"]["clock"].strip("/").lower()
+                or do.timing.samp_quant_samp_per_chan != plan["samples_per_channel"]
+                or do.out_stream.regen_mode != constants.RegenerationMode.DONT_ALLOW_REGENERATION):
+            raise RuntimeError("Marker DO readback differs from the shared AO clock plan.")
     return ao, co, readback
 
 
-def _write_chunk(writer, waveform, start, stop):
+def _write_chunk(writer, waveform, start, stop, marker_writer=None, marker_plan=None):
     # Slice copies are bounded; never turn a multi-million-point array into a Python list.
     chunk = np.ascontiguousarray(waveform[:, start:stop], dtype=np.float64)
     count = writer.write_many_sample(chunk, timeout=WRITE_TIMEOUT_S)
     if count != stop - start:
         raise RuntimeError(f"Short AO write: {count} of {stop - start} samples.")
+    if marker_writer is not None:
+        count = marker_writer.write_many_sample_port_uint32(markers.samples(marker_plan, start, stop),
+                                                             timeout=WRITE_TIMEOUT_S)
+        if count != stop-start:
+            raise RuntimeError(f"Short marker write: {count} of {stop-start} samples.")
 
 
-def _fill_remaining(writer, waveform, start, chunk_samples, abort, result):
+def _fill_remaining(writer, waveform, start, chunk_samples, abort, result, marker_writer=None, marker_plan=None):
     try:
         total = waveform.shape[1]
         while start < total and not abort.is_set():
             end = min(total, start + chunk_samples)
-            _write_chunk(writer, waveform, start, end)
+            _write_chunk(writer, waveform, start, end, marker_writer, marker_plan)
             start = end
             result["samples_written"] = start
         result["complete"] = start == total
@@ -221,7 +256,7 @@ def _drain_stopped(api, index, stream, raw, buffer, actual):
 
 
 def run(cfg, stop_event=None, *, daq=None, system=None, constants=None,
-        api_factory=None, writer_factory=None):
+        api_factory=None, writer_factory=None, marker_writer_factory=None):
     """Record an experimental run; hardware injection is for offline tests only.
 
     Return 0 on completed acquisition, 130 on Stop, 1 on failure. Completion
@@ -232,6 +267,8 @@ def run(cfg, stop_event=None, *, daq=None, system=None, constants=None,
         raise RuntimeError("A previous AO writer ignored its timeout. Resolve the driver/device state "
                            "and restart this program before another acquisition.")
     plan = prepare_plan(cfg)
+    from calibration_transfer import require_record_calibration
+    require_record_calibration(cfg)
     folder = Path(cfg["output"]) / datetime.now(timezone.utc).strftime(
         "%Y%m%dT%H%M%S_%fZ_" + plan["mode"])
     folder.mkdir(parents=True, exist_ok=False)
@@ -239,6 +276,7 @@ def run(cfg, stop_event=None, *, daq=None, system=None, constants=None,
     record = dict(schema="qkd-bb84-acquisition-v1", status="preparing", complete=False,
                   plan=plan, note=str(cfg.get("note", "")), measurement=cfg.get("measurement", {}),
                   calibration_transfer=cfg.get("calibration_transfer"), alignment_status="unverified",
+                  calibration_mode=cfg.get("calibration_mode", "Manual voltages"),
                   sync_origin=None, eligible_for_key_processing=False,
                   labels_confirmed=plan["labels_confirmed"],
                   alignment_note="NI sample indices are known, but their PicoHarp SYNC offset is not. "
@@ -250,7 +288,7 @@ def run(cfg, stop_event=None, *, daq=None, system=None, constants=None,
     raw_path = None
     stream = None
     api = None
-    opened = measuring = ao_started = co_started = False
+    opened = measuring = ao_started = co_started = marker_started = False
     tasks = {}
     waveform = None
     writer_thread = None
@@ -281,11 +319,19 @@ def run(cfg, stop_event=None, *, daq=None, system=None, constants=None,
         ao, co, readback = _configure_ni(daq, system, constants, plan, tasks)
         record["daqmx_readback"] = readback
         writer = writer_factory(ao.out_stream, auto_start=False)
+        marker_writer = None
+        if "marker" in tasks:
+            if marker_writer_factory is None:
+                from nidaqmx.stream_writers import DigitalSingleChannelWriter
+                marker_writer_factory = DigitalSingleChannelWriter
+            marker_writer = marker_writer_factory(tasks["marker"].out_stream, auto_start=False)
+            _save(folder / "marker_schedule.json", plan["markers"])
         preload = plan["buffer_samples"]
         for start in range(0, preload, plan["chunk_samples"]):
             if stop_event.is_set():
                 raise KeyboardInterrupt
-            _write_chunk(writer, waveform, start, min(preload, start + plan["chunk_samples"]))
+            _write_chunk(writer, waveform, start, min(preload, start + plan["chunk_samples"]),
+                         marker_writer, plan["markers"])
         writer_result.update(samples_written=preload, complete=preload == plan["samples_per_channel"])
         record["stage"] = "configure PicoHarp T3"
         api = (api_factory or PH330)(cfg.get("dll", DEFAULT_DLL))
@@ -297,6 +343,15 @@ def run(cfg, stop_event=None, *, daq=None, system=None, constants=None,
         if serial.value.decode() != plan["ph330"]["serial"]:
             raise RuntimeError("PicoHarp serial differs from configured device.")
         info = photon.configure(api, plan["ph330"])
+        if plan["markers"]["enabled"]:
+            reference=plan['markers'].get('reference')
+            if reference and reference['ni_serial'] != record['daqmx_readback']['serial_number']:
+                raise RuntimeError('NI serial differs from the marker calibration; recalibrate this device.')
+            api.bind("SetMarkerEdges", [ct.c_int]*5)
+            api.bind("SetMarkerHoldoffTime", [ct.c_int]*2)
+            api.call("SetMarkerEdges", index, 1, 1, 1, 1)
+            api.call("SetMarkerHoldoffTime", index, 0)
+            api.call("SetMarkerEnable", index, 1, 0, 0, 0)
         # PH330Lib supports software-controlled duration. NI defines the exact
         # finite pulse train; PH additionally records leading/trailing photons.
         api.call("SetMeasControl", index, 6, 0, 0)
@@ -309,7 +364,7 @@ def run(cfg, stop_event=None, *, daq=None, system=None, constants=None,
                    dll=str(api.path), library_version=api.version,
                    raw_file="events.t3raw", record_format="GenericT3", record_type="0x00010307",
                    dtype="little-endian uint32", measurement_control="software_start_stop",
-                   alignment_status="unverified", sync_origin=None,
+                   alignment_status="unverified", sync_origin=None, markers=plan["markers"],
                    startup_sync_allowance_s=min(SYNC_STARTUP_SECONDS, plan["warmup_seconds"]),
                    sync_boundary_note="SYNC_LOST may occur before laser startup or after finite clock stop. "
                                       "All flags and raw records are retained. Host phase/record offsets "
@@ -326,6 +381,9 @@ def run(cfg, stop_event=None, *, daq=None, system=None, constants=None,
         record["stage"] = "arm counter then start finite AO"
         co_started = True
         co.start()
+        if "marker" in tasks:
+            marker_started = True
+            tasks["marker"].start()  # Armed before AO supplies its first sample clock.
         ao_started = True
         ao.start()
         started = time.monotonic()
@@ -333,7 +391,8 @@ def run(cfg, stop_event=None, *, daq=None, system=None, constants=None,
                       ni_host_start_utc=datetime.now(timezone.utc).isoformat())
         if preload < plan["samples_per_channel"]:
             writer_thread = threading.Thread(target=_fill_remaining, daemon=True,
-                args=(writer, waveform, preload, plan["chunk_samples"], writer_abort, writer_result),
+                args=(writer, waveform, preload, plan["chunk_samples"], writer_abort, writer_result,
+                      marker_writer, plan["markers"]),
                 name="BB84-AO-buffer-writer")
             writer_thread.start()
         _save(session_path, record)
@@ -354,6 +413,7 @@ def run(cfg, stop_event=None, *, daq=None, system=None, constants=None,
                 raise RuntimeError("PicoHarp acquisition ended before software requested Stop.")
             now = time.monotonic()
             ao_done, co_done = ao.is_task_done(), co.is_task_done()
+            marker_done = tasks["marker"].is_task_done() if "marker" in tasks else True
             record["stage"] = "record finite NI sequence"
             if (record["rates_validation"] == "not_yet_checked" and now - started >= .2
                     and not co_done and raw.get("startup_sync_clear_observed")):
@@ -366,7 +426,7 @@ def run(cfg, stop_event=None, *, daq=None, system=None, constants=None,
                         or abs(period * plan["realized_rate_hz"] - 1) > .05):
                     raise RuntimeError("PicoHarp SYNC rate/period does not match the active NI clock.")
                 record["rates_validation"] = "passed_rate_only_not_index_alignment"
-            if ao_done and co_done and finished_at is None:
+            if ao_done and co_done and marker_done and finished_at is None:
                 # Hardware completion can beat publication of the final Python
                 # writer status by one scheduling interval. Let it publish first.
                 if not writer_result["complete"] and writer_thread is not None:
@@ -381,6 +441,10 @@ def run(cfg, stop_event=None, *, daq=None, system=None, constants=None,
                 record["ao_samples_generated"] = generated
                 if generated != plan["samples_per_channel"]:
                     raise RuntimeError("AO generated sample count differs from planned finite sequence.")
+                if "marker" in tasks:
+                    record["marker_samples_generated"] = tasks["marker"].out_stream.total_samp_per_chan_generated
+                    if record["marker_samples_generated"] != plan["samples_per_channel"]:
+                        raise RuntimeError("Marker generated sample count differs from planned sequence.")
                 record["ni_sequence_complete"] = True
                 finished_at = now
             if finished_at is not None:
@@ -418,7 +482,7 @@ def run(cfg, stop_event=None, *, daq=None, system=None, constants=None,
         writer_abort.set()
         # A host abort can leave an uncertain tail. Stop the laser-trigger
         # counter FIRST, retain partial files, and never call reset_device().
-        for name, was_started in (("counter", co_started), ("ao", ao_started)):
+        for name, was_started in (("counter", co_started), ("marker", marker_started), ("ao", ao_started)):
             task = tasks.get(name)
             if task is not None and was_started:
                 try:
@@ -448,9 +512,9 @@ def run(cfg, stop_event=None, *, daq=None, system=None, constants=None,
                 api.call("CloseDevice", index)
             except Exception as exc:
                 record["cleanup_errors"].append(f"Close PicoHarp: {exc}")
-        for name in ("counter", "ao"):
+        for name in ("counter", "marker", "ao"):
             task = tasks.get(name)
-            if name == "ao" and writer_alive:
+            if name in ("ao", "marker") and task is not None and writer_alive:
                 _RETAINED_RESOURCES.append((task, waveform))
                 record["cleanup_errors"].append("AO resources retained because the writer is still using them. "
                                                "Resolve the driver/device state and restart this program.")
@@ -460,6 +524,22 @@ def run(cfg, stop_event=None, *, daq=None, system=None, constants=None,
                     task.close()
                 except Exception as exc:
                     record["cleanup_errors"].append(f"Close {name}: {exc}")
+        if "marker" in tasks and not writer_alive:
+            zero_marker = None
+            try:
+                zero_marker = daq.Task()
+                zero_marker.do_channels.add_do_chan(plan["markers"]["line"],
+                                                    line_grouping=constants.LineGrouping.CHAN_FOR_ALL_LINES)
+                zero_marker.write(False, auto_start=True)
+                record["marker_low_on_exit"] = True
+            except Exception as exc:
+                record["cleanup_errors"].append(f"Reset marker low: {exc}")
+            finally:
+                if zero_marker is not None:
+                    try:
+                        zero_marker.close()
+                    except Exception as exc:
+                        record["cleanup_errors"].append(f"Close marker reset task: {exc}")
         if ao_started and not writer_alive:
             zero = None
             try:

@@ -9,6 +9,7 @@ from ph330 import DEFAULT_DLL
 from ph330_acquire import validate
 from bb84_sequence import build_sequence, SequenceCancelled
 from calibration_transfer import context as calibration_context
+import bb84_markers as markers
 
 ORDERED = "Ordered BB84"
 RANDOM = "Randomized BB84"
@@ -21,7 +22,9 @@ HELP = ("Finite pulse-by-pulse acquisition: one Alice state and one Bob basis pe
         "Commissioning: absolute NI-to-PicoHarp pulse alignment is UNVERIFIED; no key or QBER is reported. "
         "Record creates and saves the sequence AND photons together in one run folder; no Prepare step is needed. "
         "Prepare only is an independent offline test, never a file queued for Record. "
-        "Analyze saved run uses saved voltages; without a trial origin, ordered results show all eight phase hypotheses. "
+        "Use timing marker: Yes records sparse hardware checkpoints and loads a matching saved reference from EOM / timing marker test. "
+        "Without a matching reference, marker spacing can be checked but absolute trial origin stays unverified. "
+        "Analyze saved run uses saved voltages; without a validated reference, ordered results show all eight phase hypotheses. "
         "Defaults are provisional voltage labels.")
 
 
@@ -33,9 +36,11 @@ def form(mode):
         ("frequency-hz", "External laser / AO update rate (Hz)", "500000", None),
         ("delay-ns", "Laser trigger delay after voltage update (ns)", "1200", None),
         ("high-ns", "NI PFI12 trigger width (ns; function-generator output width is manual)", "100", None),
-        ("function-generator-note", "Function generator model / output pulse width / delay (record only; set manually)", "", None),
+        ("function-generator-note", "Function generator settings / cable configuration ID (match timing test; hardware set manually)", "", None),
         ("warmup-s", "Laser warm-up at fixed H/HV voltages (s)", "1", None),
         ("device", "NI USB-6351 device", "Dev1", None),
+        ("marker-use", "Use timing marker (P0.0 → PicoHarp Marker 1)", "No", ["No", "Yes"]),
+        ("calibration-mode", "Voltage source (import updates polarization and both BB84 tools)", "Imported calibration", ["Imported calibration", "Manual voltages"]),
         ("labels-confirmed", "Physical state and Bob basis voltage assignments verified?", "No", ["No", "Yes"]),
         *[(f"alice-{state.lower()}-v", f"Alice {state} target (V; provisional until verified)", str(voltage), None)
           for state, voltage in (("H", -152), ("V", 50.90), ("R", -50.87), ("L", 152.69))],
@@ -100,6 +105,10 @@ def settings(values, mode):
     validate(ph, expected_laser_hz=None)
     if values["labels-confirmed"] not in ("No", "Yes"):
         raise ValueError("Select whether the physical labels have been verified.")
+    from marker_reference import profile as marker_profile, for_bb84
+    timing_reference=marker_profile(values['device'],round(100000000/hz),round(delay/10),
+                                    round(number('high-ns')/10),ph,values.get('function-generator-note',''))
+    marker_cfg=for_bb84(values.get('marker-use','No'),timing_reference)
     return dict(mode=mode, device=values["device"], frequency_hz=hz, delay_ns=delay, high_ns=number("high-ns"),
                 trial_count=max(1, round(seconds * actual_rate)), warmup_count=round(warmup * actual_rate),
                 alice_voltages={s: number(f"alice-{s.lower()}-v") for s in ("H", "V", "R", "L")},
@@ -109,6 +118,8 @@ def settings(values, mode):
                                "function_generator_settings": values.get("function-generator-note", ""),
                                "external_pulse_width_control": "manual, not controlled by this application"},
                 calibration_transfer=calibration_context(values),
+                calibration_mode=values.get("calibration-mode", "Imported calibration"),
+                markers=marker_cfg,
                 labels_confirmed=values["labels-confirmed"] == "Yes")
 
 
@@ -118,6 +129,8 @@ def main(values, mode, stop_event=None):
             from bb84_analysis import analyze
             analyze(values["folder"], origin=int(values["analysis-origin"]) if values["analysis-origin"].strip() else None,
                     origin_note=values["analysis-origin-note"],
+                    marker_offset=int(values["analysis-marker-offset"]) if values.get("analysis-marker-offset", "").strip() else None,
+                    marker_note=values.get("analysis-marker-note", ""),
                     sync_start=int(values["analysis-start"]) if values["analysis-start"].strip() else None,
                     sync_stop=int(values["analysis-stop"]) if values["analysis-stop"].strip() else None,
                     mapping=(values["analysis-hv-ch1"], values["analysis-rl-ch1"]),
@@ -126,8 +139,12 @@ def main(values, mode, stop_event=None):
             return 0
         from bb84_run import prepare_plan, run
         cfg = settings(values, mode)
+        if values["action"] == "Record":
+            from calibration_transfer import require_record_calibration
+            require_record_calibration(cfg)
         plan = prepare_plan(cfg)
         print(json.dumps(plan, indent=2, default=str))
+        print(f"Voltage source: {cfg['calibration_mode']}; calibration provenance: {cfg['calibration_transfer']}")
         print("Pulse alignment UNVERIFIED. This recording is for commissioning, not accepted key generation.")
         if values["action"] == "Check settings":
             print("Settings checked offline. No outputs started.")

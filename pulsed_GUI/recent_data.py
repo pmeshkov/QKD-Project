@@ -4,18 +4,22 @@ from pathlib import Path
 
 REGISTRY = "__recent_data__"
 PROFILES = {
+    "timing": ("EOM timing scope", "data/timing", "session.json"),
     "bb84_ordered": ("Ordered BB84", "data/bb84/ordered", "session.json"),
     "bb84_random": ("Randomized BB84", "data/bb84/random", "session.json"),
     "sweep": ("EOM calibration sweep", "data/eoms", "*_Detector_Traces.csv"),
     "calibration": ("EOM calibration analysis", "data/eoms", "calibration_for_app.json"),
+    "fit_report": ("EOM calibration analysis", "data/eoms", "analysis.json"),
     "polarization": ("Pulsed polarization", "data/polarization", "session.json"),
     "g2": ("Pulsed / CW g2", "data/g2", "metadata.json"),
     "lifetime": ("CH1 lifetime", "pulsed_GUI/runs/lifetime_ch1", "metadata.json"),
     "preview": ("G2 acquisition", "pulsed_GUI/runs/ph330", "metadata.json"),
 }
 INPUTS = {("EOM calibration analysis", "csv"): "sweep",
+          ("EOM timing scope", "folder"): "timing",
           ("Ordered BB84", "folder"): "bb84_ordered", ("Randomized BB84", "folder"): "bb84_random",
-          ("EOM calibration analysis", "independent-csv"): "sweep",
+          ("EOM calibration analysis", "fit-report"): "fit_report",
+          ("EOM calibration analysis", "verification-folder"): "polarization",
           ("Pulsed polarization", "folder"): "polarization",
           ("Pulsed / CW g2", "folder"): "g2", ("CH1 lifetime", "folder"): "lifetime"}
 
@@ -38,6 +42,9 @@ def valid(kind, path):
 
 def _valid(kind, path):
     path = Path(path)
+    if kind == "fit_report":
+        data = read(path)
+        return data.get("schema") == "qkd-eom-model-calibration-v2" and data.get("status") == "completed"
     if kind == "sweep":
         if not path.is_file() or not path.name.endswith("_Detector_Traces.csv"):
             return False
@@ -56,8 +63,10 @@ def _valid(kind, path):
             return read(path.parent / "analysis.json").get("status") == "completed"
         except (ValueError, OSError, TypeError):
             return False
-    manifest = path / ("session.json" if kind == "polarization" or kind.startswith("bb84_") else "metadata.json")
+    manifest = path / ("session.json" if kind in ("polarization", "timing") or kind.startswith("bb84_") else "metadata.json")
     data = read(manifest)
+    if kind == "timing":
+        return data.get("schema") == "qkd-marker-test-session-v1" and data.get("complete") and data.get("status") == "completed"
     if kind.startswith("bb84_"):
         return (data.get("schema") == "qkd-bb84-acquisition-v1" and data.get("complete")
                 and data.get("status") == "completed" and not data.get("cleanup_errors")
@@ -91,7 +100,7 @@ def roots(kind, settings, root):
     saved = settings.get(tool, {})
     configured = saved.get("output", "") if isinstance(saved, dict) else ""
     result = [Path(configured)] if configured else []
-    if kind == "calibration":
+    if kind in ("calibration", "fit_report"):
         # Analyses can live under a custom sweep output root or an imported CSV.
         result.extend(roots("sweep", settings, root))
         csv = saved.get("csv", "") if isinstance(saved, dict) else ""
@@ -112,7 +121,7 @@ def latest(kind, settings, root):
             continue
         try:
             for artifact in directory.rglob(PROFILES[kind][2]):
-                path = artifact if kind in ("sweep", "calibration") else artifact.parent
+                path = artifact if kind in ("sweep", "calibration", "fit_report") else artifact.parent
                 candidates.append((artifact.stat().st_mtime_ns, path))
         except OSError:
             continue

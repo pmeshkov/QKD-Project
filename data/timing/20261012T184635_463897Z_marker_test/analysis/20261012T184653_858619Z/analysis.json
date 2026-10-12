@@ -1,0 +1,84 @@
+{
+  "schema": "qkd-marker-test-analysis-v1",
+  "status": "completed",
+  "source_session": "C:\\Users\\nanometa\\Documents\\QKD_Code\\data\\timing\\20261012T184635_463897Z_marker_test\\session.json",
+  "source_session_sha256": "f7372872abc5ee7849e3cf6d028731822551b80827a64f2311902d5a696503e5",
+  "profile": {
+    "device": "Dev1",
+    "period_ticks": 133,
+    "delay_ticks": 90,
+    "high_ticks": 10,
+    "timebase_hz": 100000000,
+    "serial": "1050578",
+    "sync": {
+      "mode": "edge",
+      "edge": "falling",
+      "level_mv": -60,
+      "offset_ps": 0
+    },
+    "binning": 6,
+    "function_generator_settings": "",
+    "route": "AO SampleClock rising -> P0.0 rising; Ctr0/PFI12 -> FG -> BDL -> PH330 SYNC",
+    "sync_divider": 1,
+    "marker_holdoff_ns": 0
+  },
+  "ni_serial": 38160323,
+  "runs": [
+    {
+      "folder": "C:\\Users\\nanometa\\Documents\\QKD_Code\\data\\timing\\20261012T184635_463897Z_marker_test\\20261012T184635_464757Z_scope",
+      "marker_count": 23496,
+      "spacing_samples": 32,
+      "spacing_passed": true,
+      "first_marker_sync": 14,
+      "last_marker_sync": 751854,
+      "raw_sha256": "2b32afdcff46d32cf635bb48199e600dcfe1ac8e78ab654d20d1873bd8ab2bf5",
+      "ni_serial": 38160323,
+      "photon_counts": [
+        513,
+        447
+      ],
+      "offset": null,
+      "period_ns": 1330.01,
+      "resolution_ps": 64.0
+    },
+    {
+      "folder": "C:\\Users\\nanometa\\Documents\\QKD_Code\\data\\timing\\20261012T184635_463897Z_marker_test\\20261012T184641_612840Z_scope",
+      "marker_count": 23496,
+      "spacing_samples": 32,
+      "spacing_passed": true,
+      "first_marker_sync": 22,
+      "last_marker_sync": 751862,
+      "raw_sha256": "df87db93f397e7975771055a25f24c404e6e8d7e0a794ac556a3edbb3a070465",
+      "ni_serial": 38160323,
+      "photon_counts": [
+        483,
+        409
+      ],
+      "offset": null,
+      "period_ns": 1330.007,
+      "resolution_ps": 64.0
+    },
+    {
+      "folder": "C:\\Users\\nanometa\\Documents\\QKD_Code\\data\\timing\\20261012T184635_463897Z_marker_test\\20261012T184647_717401Z_scope",
+      "marker_count": 23496,
+      "spacing_samples": 32,
+      "spacing_passed": true,
+      "first_marker_sync": 17,
+      "last_marker_sync": 751857,
+      "raw_sha256": "e816b79c8115baaba9b6da591b7a91ab52494081267564fe144056f991693583",
+      "ni_serial": 38160323,
+      "photon_counts": [
+        398,
+        362
+      ],
+      "offset": null,
+      "period_ns": 1330.007,
+      "resolution_ps": 64.0
+    }
+  ],
+  "offset": null,
+  "reference_eligible": false,
+  "evidence": null,
+  "interpretation": "Spacing only: absolute origin remains unverified",
+  "limitation": "Constant net spacing does not rule out compensating errors. Reference applies only to matching timing/cable settings."
+}

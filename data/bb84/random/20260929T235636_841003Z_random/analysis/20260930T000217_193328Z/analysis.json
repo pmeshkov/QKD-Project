@@ -1,0 +1,47 @@
+{
+  "mode": "unassigned_random_diagnostic",
+  "origin": null,
+  "origin_note": "",
+  "sync_range": [
+    1127820,
+    null
+  ],
+  "mapping": [
+    "V",
+    "L"
+  ],
+  "gate": [
+    50.0,
+    60.0
+  ],
+  "resolution_ns": 0.064,
+  "total_photons": 62299,
+  "range_photons": 61515,
+  "accepted_photons": 9732,
+  "schema": "qkd-bb84-analysis-v1",
+  "status": "completed",
+  "source_session": "C:\\Users\\nanometa\\Documents\\QKD_Code\\data\\bb84\\random\\20260929T235636_841003Z_random\\session.json",
+  "alignment_status": "unverified",
+  "eligible_for_key_processing": false,
+  "plot_dpi": 300,
+  "flags_seen": 4,
+  "flags_by_phase": {
+    "startup": 4,
+    "active": 0,
+    "tail": 0,
+    "stopped": 0
+  },
+  "note": "All phase offsets are hypotheses, never a fitted/verified origin. Pointwise Wilson intervals assume binomial detection counts; no simultaneous confidence or security claim.",
+  "selection_note": "Default diagnostic lower SYNC bound is warmup_count + 0.5 s worth of cycles; it is a conservative display cut, not a measured warm-up boundary. No default upper cut. Boundary photons may remain.",
+  "alice_voltages": {
+    "H": -152.0,
+    "V": 50.9,
+    "R": -50.87,
+    "L": 152.69
+  },
+  "bob_voltages": {
+    "HV": 47.52,
+    "RL": -47.44
+  },
+  "phase_hypotheses": []
+}

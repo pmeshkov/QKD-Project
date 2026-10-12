@@ -9,7 +9,8 @@ import numpy as np
 
 from bb84_sequence import STATES, BASES, file_sha256
 from ph330_acquire import BAD_FLAGS
-from ph330_preview import decode_t3
+from ph330_preview import decode_t3, decode_t3_events
+import bb84_markers as markers
 from figure_options import validated_dpi
 from record_io import save_json
 
@@ -66,7 +67,8 @@ def agreement(counts, target):
 
 
 def summarize(folder, *, origin=None, origin_note="", sync_start=None, sync_stop=None,
-              mapping=("V", "L"), gate=(50., 60.), stop_event=None):
+              mapping=("V", "L"), gate=(50., 60.), stop_event=None,
+              marker_offset=None, marker_note=""):
     folder = Path(folder).resolve()
     session = json.loads((folder / "session.json").read_text(encoding="utf-8"))
     if session.get("schema") != "qkd-bb84-acquisition-v1":
@@ -103,11 +105,55 @@ def summarize(folder, *, origin=None, origin_note="", sync_start=None, sync_stop
     if gate is not None and (len(gate) != 2 or not all(math.isfinite(x) for x in gate)
                             or not 0 <= gate[0] < gate[1] <= min(32768*resolution, 1e9/rate)):
         raise ValueError("Arrival gate must lie within the T3 range and excitation period.")
+    raw = raw_folder / "events.t3raw"
+    if raw.stat().st_size % 4 or raw.stat().st_size // 4 != meta["records"]:
+        raise ValueError("Raw file size differs from metadata.")
+    marker_plan = plan.get("markers", {})
+    marker_check = None
+    if marker_plan.get("enabled"):
+        if (meta.get("markers") != marker_plan
+                or session.get("marker_samples_generated") != plan["samples_per_channel"]):
+            raise ValueError("Marker recording configuration or generated sample count is inconsistent.")
+        masks, cycles, carry = [], [], 0
+        with raw.open("rb") as stream:
+            while True:
+                stopped(stop_event)
+                words = np.fromfile(stream, dtype="<u4", count=CHUNK)
+                if not len(words):
+                    break
+                events = decode_t3_events(words, carry)
+                carry = events["carry"]
+                masks.extend(events["marker_masks"].tolist())
+                cycles.extend(events["marker_cycles"].tolist())
+                if len(cycles) > len(marker_plan["sample_indices"]):
+                    raise ValueError("Extra timing markers recorded; alignment refused.")
+        effective = dict(marker_plan)
+        if marker_offset is None and effective.get('mode') != markers.CALIBRATED:
+            from marker_reference import for_saved_run
+            reference = for_saved_run(plan, session.get('daqmx_readback', {}).get('serial_number'))
+            if reference:
+                effective.update(mode=markers.CALIBRATED, pulse_sync_minus_marker_sync=reference['offset'],
+                                 verification_note=f"Electronic loopback: {reference['source_report']}", reference=reference)
+        if marker_offset is not None:
+            if type(marker_offset) is not int or abs(marker_offset) > 100 or not marker_note.strip():
+                raise ValueError("Marker offset requires an integer within ±100 cycles and independent bench evidence.")
+            effective.update(mode=markers.CALIBRATED, pulse_sync_minus_marker_sync=marker_offset,
+                             verification_note=marker_note.strip(), reference=None)
+        marker_check = markers.validate_observed(effective, masks, cycles, plan["warmup_count"])
+        if marker_check["origin"] is not None:
+            if origin is not None and origin != marker_check["origin"]:
+                raise ValueError("Supplied trial origin contradicts the hardware marker reference.")
+            origin = marker_check["origin"]
+            origin_note = marker_check["verification_note"]
+    elif marker_offset is not None:
+        raise ValueError("This run did not enable timing markers.")
     lower = (max(0, origin) if origin is not None else plan["warmup_count"] + math.ceil(.5*rate)) if sync_start is None else sync_start
     upper = sync_stop
     if origin is not None:
         lower = max(lower, origin, 0)
         upper = min(upper, origin+plan["trial_count"]) if upper is not None else origin+plan["trial_count"]
+        if marker_plan.get("enabled"):
+            upper = min(upper, origin+marker_plan["analyzed_trial_count"])
     if upper is not None and upper <= lower:
         raise ValueError("Selected SYNC interval is empty; adjust its bounds or supplied origin.")
     choices = None
@@ -141,8 +187,8 @@ def summarize(folder, *, origin=None, origin_note="", sync_start=None, sync_stop
                 if not len(words):
                     break
                 ch, cycles, micro, carry, stats = decode_t3(words, carry)
-                if np.any(ch > 1) or stats["marker_records"]:
-                    raise ValueError("Unexpected input channel or marker; this analysis expects two-channel unmarked T3.")
+                if np.any(ch > 1) or (stats["marker_records"] and not marker_plan.get("enabled")):
+                    raise ValueError("Unexpected input channel or unconfigured timing marker.")
                 if len(cycles):
                     if cycles[0] < last_cycle or np.any(np.diff(cycles) < 0):
                         raise ValueError("Nonmonotonic SYNC indices; inspect raw data.")
@@ -170,12 +216,15 @@ def summarize(folder, *, origin=None, origin_note="", sync_start=None, sync_stop
     if not accepted:
         raise ValueError("No photons in the selected SYNC range and arrival gate. Check the gate/range or record longer.")
     return dict(session=session, meta=meta, target=target, mapping=list(mapping), gate=gate,
+                marker_check=marker_check,
+                alignment_status=marker_check["status"] if marker_check else "unverified",
                 origin=origin, origin_note=origin_note, sync_range=[lower, upper],
                 hist=hist, resolution_ns=resolution, phase_counts=phase_counts,
                 assigned=assigned if origin is not None else None,
                 hypotheses=hypotheses(phase_counts) if plan["mode"] == "ordered" and origin is None else None,
                 total_photons=total, range_photons=in_range, accepted_photons=accepted,
-                mode="supplied_origin" if origin is not None else "ordered_phase_diagnostic" if plan["mode"] == "ordered" else "unassigned_random_diagnostic")
+                mode="marker_referenced" if marker_check and marker_check["origin"] is not None else
+                     "supplied_origin" if origin is not None else "ordered_phase_diagnostic" if plan["mode"] == "ordered" else "unassigned_random_diagnostic")
 
 
 def render(result, output, dpi):
@@ -227,7 +276,7 @@ def render(result, output, dpi):
         p, low, high = (stats[key].ravel() for key in ("ch1_fraction", "ci_low", "ci_high"))
         ax.errorbar(range(8), p, yerr=[np.maximum(0,p-low), np.maximum(0,high-p)], fmt="o", capsize=4, label="Measured, 95% interval")
         ax.scatter(range(8), target.ravel(), marker="_", s=300, c="black", label="Ideal")
-        ax.set(xticks=range(8), xticklabels=labels, ylim=(-.06,1.06), ylabel="CH1 fraction", title="Comparison conditional on supplied trial origin")
+        ax.set(xticks=range(8), xticklabels=labels, ylim=(-.06,1.06), ylabel="CH1 fraction", title="Comparison using " + ("bench-referenced markers" if result["mode"] == "marker_referenced" else "supplied trial origin"))
         ax.tick_params(axis="x", labelsize=8)
         ax.legend(fontsize=8)
         ax = axes[1, 1]
@@ -241,7 +290,7 @@ def render(result, output, dpi):
         for i in range(4):
             for j in range(4):
                 ax.text(j,i,f"{matrix[i,j]:.1%}" if np.isfinite(matrix[i,j]) else "N/A", ha="center", va="center", color="white" if matrix[i,j]>.65 else "black")
-        ax.set(xticks=range(4), xticklabels=STATES, yticks=range(4), yticklabels=STATES, xlabel="Assumed detector outcome", ylabel="Alice state", title="Conditional detection matrix · supplied origin")
+        ax.set(xticks=range(4), xticklabels=STATES, yticks=range(4), yticklabels=STATES, xlabel="Assumed detector outcome", ylabel="Alice state", title="Conditional detection matrix")
         fig.colorbar(plot, ax=ax, shrink=.75)
     else:
         for ax in axes[1]:
@@ -249,7 +298,7 @@ def render(result, output, dpi):
         axes[1,0].text(.05,.7,"Randomized run: no trial origin supplied.\n\nArrival and phase diagnostics only.\nState fidelity requires independently established\nSYNC-to-trial correspondence and saved choices.", fontsize=13)
     gate_text = "ungated" if gate is None else f"gate {gate[0]:g}–{gate[1]:g} ns"
     fig.suptitle(f"{'Ordered' if result['session']['plan']['mode']=='ordered' else 'Randomized'} BB84 · commissioning diagnostic\n"
-                 f"{result['accepted_photons']:,} selected photons · {gate_text} · trial alignment UNVERIFIED", fontsize=16)
+                 f"{result['accepted_photons']:,} selected photons · {gate_text}\n{result['alignment_status']}", fontsize=16)
     fig.supxlabel(f"Assumed CH1 outcomes: HV→{result['mapping'][0]}, RL→{result['mapping'][1]}. "
                   "Physical labels provisional. No background/efficiency correction.\n"
                   "Phase agreement does not prove trial origin, missing-pulse integrity, QBER, or secure-key performance.", fontsize=10)
@@ -266,10 +315,13 @@ def analyze(folder, *, dpi=300, **kwargs):
     output.mkdir(parents=True, exist_ok=False)
     report = {k: result[k] for k in ("mode", "origin", "origin_note", "sync_range", "mapping", "gate", "resolution_ns", "total_photons", "range_photons", "accepted_photons")}
     report.update(schema="qkd-bb84-analysis-v1", status="writing", source_session=str(Path(folder).resolve()/"session.json"),
-                  alignment_status="unverified", eligible_for_key_processing=False, plot_dpi=dpi,
+                  alignment_status=result["alignment_status"], marker_check=result["marker_check"],
+                  eligible_for_key_processing=False, plot_dpi=dpi,
                   flags_seen=result["meta"].get("flags_seen",0), flags_by_phase=result["meta"].get("flags_by_phase", {}),
                   note="All phase offsets are hypotheses, never a fitted/verified origin. Pointwise Wilson intervals assume binomial detection counts; no simultaneous confidence or security claim.",
-                  selection_note="Default diagnostic lower SYNC bound is warmup_count + 0.5 s worth of cycles; it is a conservative display cut, not a measured warm-up boundary. No default upper cut. Boundary photons may remain.",
+                  selection_note=("Indexed selection uses saved choices, supplied/marker origin, and the saved SYNC range; marker runs exclude the last trial as an end-reference guard."
+                                  if result["origin"] is not None else
+                                  "Default diagnostic lower SYNC bound is warmup_count + 0.5 s worth of cycles; it is a conservative display cut, not a measured warm-up boundary. No default upper cut. Boundary photons may remain."),
                   alice_voltages=result["session"]["plan"]["alice_voltages"], bob_voltages=result["session"]["plan"]["bob_voltages"])
     save_json(output/"analysis.json", report)
     counts = result["hypotheses"] if result["hypotheses"] is not None else [result["assigned"]] if result["assigned"] is not None else []
@@ -284,14 +336,14 @@ def analyze(folder, *, dpi=300, **kwargs):
             for i,state in enumerate(STATES):
                 for b,basis in enumerate(BASES):
                     vals = [s[k][i,b] for k in ("ch1_fraction","ci_low","ci_high")]
-                    writer.writerow([phase if result["hypotheses"] is not None else "supplied_origin",state,basis,*matrix[i,b],result["target"][i,b],*[v if np.isfinite(v) else "" for v in vals]])
+                    writer.writerow([phase if result["hypotheses"] is not None else result["mode"],state,basis,*matrix[i,b],result["target"][i,b],*[v if np.isfinite(v) else "" for v in vals]])
     np.savez_compressed(output/"diagnostics.npz", phase_counts=result["phase_counts"], arrival_counts=result["hist"], arrival_edges_ns=np.arange(32769)*result["resolution_ns"])
     stopped(kwargs.get("stop_event"))
     render(result, output, dpi)
     report.update(status="completed", phase_hypotheses=metrics)
     save_json(output/"analysis.json", report)
     print(f"Analyzed {result['total_photons']:,} photons; selected {result['accepted_photons']:,}. All raw records scanned.")
-    print("Origin remains UNVERIFIED. This is a transmission/count-ratio diagnostic, not quantum-state fidelity or QBER.")
+    print(f"Timing reference: {result['alignment_status']}. This is a transmission/count-ratio diagnostic, not quantum-state fidelity or secure-key analysis.")
     print(f"Run record: {(Path(folder).resolve()/'session.json')}")
     print(f"Preview image: {(output/'bb84_diagnostic.png').resolve()}")
     return output

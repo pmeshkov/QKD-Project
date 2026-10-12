@@ -11,7 +11,7 @@ from pathlib import Path
 import numpy as np
 
 
-def decode_t3(words, carry=0):
+def decode_t3_events(words, carry=0):
     """GenericT3: 1 special, 6 channel, 15 microtime, 10 sync bits.
 
     Compressed overflows advance the sync count by 1024 * multiplicity.
@@ -31,12 +31,19 @@ def decode_t3(words, carry=0):
     increments = np.where(overflow, np.maximum(nsync, 1)*1024, 0)
     corrected = np.cumsum(increments, dtype=np.int64) + carry
     photons = ~special
-    return (channel[photons], (nsync + corrected)[photons],
-            ((words >> 10) & 32767)[photons],
-            int(corrected[-1]) if len(words) else carry,
-            {"overflow_records": int(overflow.sum()),
-             "overflow_wraps": int(increments.sum() // 1024),
-             "marker_records": int(marker.sum())})
+    return dict(channel=channel[photons], cycles=(nsync + corrected)[photons],
+                micro=((words >> 10) & 32767)[photons],
+                marker_masks=channel[marker], marker_cycles=(nsync + corrected)[marker],
+                carry=int(corrected[-1]) if len(words) else carry,
+                stats={"overflow_records": int(overflow.sum()),
+                       "overflow_wraps": int(increments.sum() // 1024),
+                       "marker_records": int(marker.sum())})
+
+
+def decode_t3(words, carry=0):
+    """Backward-compatible photon-only view; use decode_t3_events for markers."""
+    events = decode_t3_events(words, carry)
+    return tuple(events[key] for key in ("channel", "cycles", "micro", "carry", "stats"))
 
 
 def cross_histogram(a, b, halfwidth_ps=2_500_000, bin_ps=2000, max_pairs=20_000_000):

@@ -20,6 +20,41 @@ def candidate():
 
 
 class TransferTests(unittest.TestCase):
+    def test_one_time_profile_repair_preserves_custom_values_and_later_edits(self):
+        pol_values = dict(gui.defaults("Pulsed polarization"), **transfer.form_updates(candidate(), True))
+        stale = dict(gui.defaults(gui.bb84.RANDOM), **{"ch1-edge": "falling", "seconds": "120", "labels-confirmed": "Yes"})
+        custom = dict(gui.defaults(gui.bb84.ORDERED), **{"alice-h-v": "-133"})
+        saved = {"Pulsed polarization": pol_values, gui.bb84.RANDOM: stale, gui.bb84.ORDERED: custom}
+        messages = gui.migrate_experiment_profiles(saved)
+        self.assertTrue(any("CH1" in m for m in messages))
+        self.assertEqual(saved[gui.bb84.RANDOM]["ch1-edge"], "rising")
+        self.assertEqual(saved[gui.bb84.RANDOM]["alice-h-v"], "-170.0")
+        self.assertEqual(saved[gui.bb84.RANDOM]["seconds"], "120")
+        self.assertEqual(saved[gui.bb84.RANDOM]["labels-confirmed"], "No")
+        self.assertEqual(saved[gui.bb84.ORDERED]["alice-h-v"], "-133")
+        saved[gui.bb84.RANDOM]["alice-h-v"] = "-140"
+        self.assertEqual(gui.migrate_experiment_profiles(saved), [])
+        self.assertEqual(saved[gui.bb84.RANDOM]["alice-h-v"], "-140")
+
+    def test_import_updates_both_modes_preserving_unrelated_settings(self):
+        data = candidate()
+        settings = {gui.bb84.RANDOM: {"seconds": "120", "alice-h-v": "-152", "labels-confirmed": "Yes"}}
+        transfer.publish(settings, data)
+        self.assertEqual(settings[gui.bb84.RANDOM]["seconds"], "120")
+        for tool in (gui.bb84.ORDERED, gui.bb84.RANDOM):
+            values = dict(gui.defaults(tool), **settings[tool])
+            cfg = gui.bb84.settings(values, gui.bb84.MODES[tool])
+            transfer.require_record_calibration(cfg)
+            self.assertEqual(cfg["alice_voltages"], dict(H=-170., V=35., R=-80., L=127.))
+            self.assertEqual(cfg["bob_voltages"], dict(HV=45., RL=-54.))
+            self.assertFalse(cfg["labels_confirmed"])
+            values["alice-h-v"] = "-169"
+            cfg = gui.bb84.settings(values, gui.bb84.MODES[tool])
+            with self.assertRaisesRegex(ValueError, "Manual voltages"):
+                transfer.require_record_calibration(cfg)
+            cfg["calibration_mode"] = "Manual voltages"
+            transfer.require_record_calibration(cfg)
+
     def test_candidate_handoff_preserves_indices_and_marks_manual_changes(self):
         data = candidate()
         for indexed, tool in [(True, "Pulsed polarization"), (False, gui.bb84.RANDOM)]:
@@ -53,6 +88,8 @@ class TransferTests(unittest.TestCase):
                     app.paste_calibration()
                     hardware.assert_not_called()
                 self.assertEqual(app.vars["alice-0-v"].get(), "-170.0")
+                self.assertEqual(app.settings[gui.bb84.RANDOM]["alice-v-v"], "35.0")
+                self.assertEqual(app.settings[gui.bb84.ORDERED]["alice-r-v"], "-80.0")
                 before = app.values()
                 with patch.object(root, "clipboard_get", return_value='{"schema":"wrong"}'):
                     app.paste_calibration()

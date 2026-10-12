@@ -1,0 +1,152 @@
+{
+  "schema": "qkd-bb84-sequence-v1",
+  "status": "complete",
+  "complete": true,
+  "created_utc": "2026-10-11T06:54:45.013578+00:00",
+  "mode": "ordered",
+  "trial_count": 112781955,
+  "warmup_count": 751880,
+  "samples_per_channel": 113533835,
+  "completed_trials": 112781955,
+  "completed_warmup_samples": 751880,
+  "assumed_hv_gain": -20.0,
+  "alice_voltages": {
+    "H": -144.82758620689657,
+    "V": 48.275862068965495,
+    "R": -62.0689655172414,
+    "L": 158.62068965517238
+  },
+  "bob_voltages": {
+    "HV": 48.275862068965495,
+    "RL": -62.0689655172414
+  },
+  "state_order": [
+    "H",
+    "V",
+    "R",
+    "L"
+  ],
+  "basis_order": [
+    "HV",
+    "RL"
+  ],
+  "alice_mapping": {
+    "H": {
+      "state_index": 0,
+      "bit": 0,
+      "basis": "HV",
+      "basis_index": 0
+    },
+    "V": {
+      "state_index": 1,
+      "bit": 1,
+      "basis": "HV",
+      "basis_index": 0
+    },
+    "R": {
+      "state_index": 2,
+      "bit": 0,
+      "basis": "RL",
+      "basis_index": 1
+    },
+    "L": {
+      "state_index": 3,
+      "bit": 1,
+      "basis": "RL",
+      "basis_index": 1
+    }
+  },
+  "bob_mapping": {
+    "HV": {
+      "basis_index": 0,
+      "target_hv_v": 48.275862068965495
+    },
+    "RL": {
+      "basis_index": 1,
+      "target_hv_v": -62.0689655172414
+    }
+  },
+  "warmup": {
+    "alice_state": "H",
+    "bob_basis": "HV",
+    "first_ni_sample_index": 0,
+    "sample_count": 751880,
+    "contains_experimental_trials": false
+  },
+  "indexing": {
+    "trial_index_origin": 0,
+    "ni_sample_index_origin": 0,
+    "first_experiment_ni_sample_index": 751880,
+    "relationship": "ni_sample_index = warmup_count + trial_index",
+    "recorded_sync_alignment": "not established by sequence generation"
+  },
+  "randomness": {
+    "source": "none (deterministic test)",
+    "method": "Alice = trial_index % 4; Bob = (trial_index // 4) % 2.",
+    "seed_saved": false,
+    "choices_saved_before_hardware_acquisition": true
+  },
+  "calibration_provenance": "Caller-supplied target EOM voltages; physical labels are not inferred or verified.",
+  "security_note": "This is a preparation record, not evidence of synchronization or a secure key.",
+  "files": {
+    "choices": {
+      "path": "choices.npy",
+      "dtype": "uint8",
+      "shape": [
+        112781955,
+        2
+      ],
+      "columns": [
+        "alice_state_index",
+        "bob_basis_index"
+      ],
+      "sha256": "31578bdfdd8bdf21881206b2659468af88bd46a623fac7bb49b908275e37154d",
+      "bytes": 225564038
+    },
+    "ao_waveform": {
+      "path": "ao_waveform.npy",
+      "dtype": "float64",
+      "shape": [
+        2,
+        113533835
+      ],
+      "channels": [
+        "AO0/Alice",
+        "AO1/Bob"
+      ],
+      "units": "DAQ volts",
+      "conversion": "target EOM volts / -20",
+      "sha256": "2144e8fb7ff268ba5d6e99a9a37947b38084ba5663ce6aa56370b5e7fa1a408a",
+      "bytes": 1816541488
+    },
+    "preview": {
+      "path": "preview.csv",
+      "scope": "First up to 1024 experimental trials, excluding warmup",
+      "sha256": "4060de2034c0dfb363e0463e57f6d4eee1cc50f8629b87396804ba1df3e358aa",
+      "bytes": 99603
+    }
+  },
+  "counts": {
+    "alice": {
+      "H": 28195489,
+      "V": 28195489,
+      "R": 28195489,
+      "L": 28195488
+    },
+    "bob": {
+      "HV": 56390979,
+      "RL": 56390976
+    },
+    "alice_bob_pairs": {
+      "H/HV": 14097745,
+      "H/RL": 14097744,
+      "V/HV": 14097745,
+      "V/RL": 14097744,
+      "R/HV": 14097745,
+      "R/RL": 14097744,
+      "L/HV": 14097744,
+      "L/RL": 14097744
+    }
+  },
+  "completed_utc": "2026-10-11T06:54:49.010772+00:00"
+}

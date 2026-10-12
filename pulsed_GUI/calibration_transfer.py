@@ -4,6 +4,35 @@ import math
 
 SCHEMA = "qkd-eom-calibration-transfer-v1"
 DEFAULT_LABELS = ["H", "R", "V", "L"]
+TOOLS = ("Pulsed polarization", "Ordered BB84", "Randomized BB84")
+
+
+def publish(settings, data):
+    """An explicit import updates all three experiment profiles atomically."""
+    all_updates = {tool: form_updates(data, tool == "Pulsed polarization") for tool in TOOLS}
+    for tool, updates in all_updates.items():
+        profile = dict(settings.get(tool, {}))
+        profile.update(updates)
+        if tool != "Pulsed polarization":
+            profile["calibration-mode"] = "Imported calibration"
+        settings[tool] = profile
+    settings["__shared_calibration__"] = parse(json.dumps(data))
+
+
+def require_record_calibration(cfg):
+    """Prevent stale/manual edits being mistaken for an imported calibration."""
+    mode = cfg.get("calibration_mode", "Manual voltages")
+    context = cfg.get("calibration_transfer")
+    if mode == "Imported calibration":
+        if not context or not context.get("current_voltages_match_import"):
+            raise ValueError("Import/paste a calibration before Record. The six voltages must match it, "
+                             "or explicitly select Manual voltages for an intentional override.")
+        data = parse(json.dumps(context["imported_candidate"]))
+        if (cfg["alice_voltages"] != dict(zip(DEFAULT_LABELS, data["alice_v"]))
+                or cfg["bob_voltages"] != dict(zip(("HV", "RL"), data["bob_v"]))):
+            raise ValueError("Requested BB84 waveform voltages differ from the imported calibration.")
+    elif mode != "Manual voltages":
+        raise ValueError("Select an EOM calibration mode.")
 
 
 def parse(text):
@@ -25,6 +54,15 @@ def parse(text):
         raise ValueError("This transfer expects S0/S1/S2/S3 = provisional H/R/V/L; check the notebook convention.")
     if data.get("physical_labels_confirmed") is not False:
         raise ValueError("Notebook transfer must retain physical_labels_confirmed=false; confirm labels separately on the bench.")
+    if data.get("method") == "joint-sinusoidal-poisson-v2":
+        if data.get("predicted_targets_passed") is not True:
+            raise ValueError("The physical-fit candidate did not meet the configured fraction targets.")
+        for role in ("alice", "bob"):
+            limits = data.get("operating_bounds", {}).get(role, [])
+            if (len(limits) != 2 or not all(isinstance(v, (int,float)) and math.isfinite(v) for v in limits)
+                    or not -200 < limits[0] < limits[1] < 200
+                    or any(v < limits[0]-1e-7 or v > limits[1]+1e-7 for v in data[role+"_v"])):
+                raise ValueError("Fitted voltages must remain within their saved operating margins.")
     return data
 
 

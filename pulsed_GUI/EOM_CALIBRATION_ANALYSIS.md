@@ -1,78 +1,126 @@
-# EOM calibration analysis in the main app
+# EOM calibration: fit, transfer, verify
 
-1. In **EOM calibration sweep**, finish a sweep. Click **Analyze last completed
-   sweep →** below the form. The app switches to **EOM calibration analysis**
-   and selects that CSV. For existing data, choose this mode directly and use
-   **Browse** or **Use latest** beside the CSV field.
-2. Review the search centers/radii under **Voltages**, and the statistical
-   settings under **Run**. Defaults match `CalibrateEOMVoltages.ipynb`:
-   Alice centers −165, −61, 43, 147 V; Bob centers 30, −68 V; radii 35 V;
-   0.05 balance tolerance, 0.15 extinction tolerance, at least 50 training
-   photons per pair, 70% training counts, 95% simultaneous confidence.
-3. Click **Run**. The app reads the grid size from the voltage columns, selects
-   six measured voltages jointly, checks held-out counts, saves the results,
-   and opens the held-out check and selected-matrix figures. The complete
-   output folder also contains response surfaces, total-rate history, and
-   local response curves, all in PNG/PDF. **Analysis → Saved figure resolution**
-   controls PNG DPI. **Open data folder** takes you to these exports.
-4. Review the voltages, fractions, and check results. Click **Load last completed
-   result into Polarization matrix →**, **Repeating H-V-R-L →**, or **Random BB84 →**.
-   This switches to that form and fills the six EOM target voltages. It does not
-   start instruments. Those modes also have **Load latest app calibration**
-   under Voltages, so the handoff works after an app restart.
+1. Finish **EOM calibration sweep**, then click **Analyze last completed sweep →**.
+   Or choose **EOM calibration analysis → Fit sweep** and select the completed CSV.
+2. Review the Alice/Bob absolute voltage limits under **Voltages** (default 180 V)
+   and Vpi search bounds under **Analysis** (50–400 V). Limits are EOM target volts.
+   They are software operating margins, not certified hardware limits. No selected
+   voltage can extrapolate outside the measured range or reach ±200 V.
+3. Click **Run**. Inspect both fitted responses and residuals, then the predicted
+   eight-setting fractions. The app opens the fit and predicted-fraction plots.
+4. If the fit is identified and all predicted fractions meet the configured
+   tolerances, use **Load last completed result into Polarization matrix →**.
+   Imports fill polarization and both BB84 profiles, without starting hardware.
+5. Record a fresh eight-setting polarization run at these exact voltages.
+   Return to **EOM calibration analysis → Verify fitted voltages**, select the
+   original fitted `analysis.json` and the new polarization run folder, then Run.
+   Browse / Use latest help locate both. Verification does not change the voltages.
 
-For new sweeps, results are saved inside their source run:
-`data/eoms/<sweep timestamp>/analysis/<analysis timestamp>/`.
-Leave **Optional analysis directory override** blank for this default; enter a
-directory only when intentionally exporting elsewhere. The former factory
-`data/eoms/calibrations` setting automatically changes to the new default.
-Custom overrides are preserved. Each analysis creates its own folder:
+## Model and selection
 
-- `analysis.json`: source hashes/settings, parameters, selected candidate,
-  full-data/held-out checks, independent-check status, and calculation-core hash.
-- `calibration_for_app.json`: six-voltage handoff with provenance/check status.
-- `training_candidates.csv`, `selected_measured_points.csv`, `heldout_checks.csv`.
-- Optional `independent_checks.csv` and proposed unmeasured refinement points.
-- Five diagnostic figures in PNG/PDF.
+All recorded per-setting counts enter a joint Poisson maximum-likelihood fit:
 
-Existing measurements are not moved. When analyzing an older flat CSV, results
-go under `<CSV parent>/analysis/<CSV timestamp or stem>/<analysis timestamp>/`
-so separate old sweeps cannot mix. Recent-file selection and calibration loading
-support both layouts, including historical results in `calibrations/`.
+    theta = kA * VA + kB * VB + phi
+    R1 = C1 + A1 * sin(theta)^2
+    R2 = C2 + A2 * cos(theta)^2
+    expected counts = recorded dwell * R
 
-The algorithm is the notebook's measured-grid algorithm, not a new fit. Training
-counts alone select/rank the candidate. Do not adjust the split seed or select
-candidates by their held-out result. A completed analysis may still report
-**NOT VALIDATED** or a compromise with no training-feasible set. Loading a
-candidate preserves those results and resets physical-label confirmation.
-H/R/V/L remain provisional aliases for S0/S1/S2/S3; optical verification is
-still needed. A 50:50 detected fraction is not automatically equal optical power.
+The phase is shared; each detector has its own amplitude and constant background.
+This retains complementary sinusoidal physics while allowing unequal detector
+rates. Background also absorbs unmodulated light/finite contrast; it is not
+identified uniquely as detector dark counts. We use actual CSV voltage columns.
+FFT and multiple frequency/phase starts initialize the nonlinear fit. No measured
+point is selected because its noisy value happened to be closest to a target.
+There is no count splitting, training subset, or held-out subset.
 
-Keep PicoHarp `_sweep.json` and `_points.jsonl` beside the completed CSV. Partial
-sweeps are refused. For old NI CSVs without sidecars, explicitly enter an assumed
-dwell in **Legacy NI CSV only**; uncertainties are then approximate and cannot
-pass the exact-count validation. The optional independent sweep must measure
-the same selected voltage pairs exactly and must not reuse the same data.
+The four Alice / two Bob roles have CH1-fraction targets:
 
-## Recent file selections
+| Alice role | Bob 1 | Bob 2 |
+|---|---:|---:|
+| S0 (provisional H) | 0 | 0.5 |
+| S1 (provisional R) | 0.5 | 0 |
+| S2 (provisional V) | 1 | 0.5 |
+| S3 (provisional L) | 0.5 | 1 |
 
-The app remembers completed run locations across restarts. Blank analysis inputs
-are initialized from the last compatible run. Existing nonempty selections are
-preserved; **Use latest** explicitly replaces them. When no usable remembered run
-exists, the app searches the configured output directory and the normal data
-directory. Deleted files, incomplete sweeps and incompatible recording types are
-skipped. A polarization run with completed blocks can be selected even if later
-blocks were interrupted.
+We minimize the sum of squared errors of **R1/(R1+R2)** over these eight cases.
+Each target must also satisfy its explicit tolerance: default ±0.05 around 0.5,
+and at most 0.15 wrong-detector fraction for 0/1 targets. A constrained phase
+search is attempted if the least-squares solution misses a tolerance. These are
+editable acceptance requirements, not statistical weights or security claims.
+Detector imbalance/background can make simultaneous requirements impossible;
+a high R² does not prove all targets are attainable.
 
-Polarization, lifetime, g² and raw T3 preview modes also offer recent-recording
-shortcuts. Browse starts from the current selection, recent compatible data, or
-its containing data folder. The optional independent sweep is never automatically
-filled. Automatic selection never starts analysis or hardware; review the visible
-path and click Run.
+After selecting phases, we enumerate periodic wraps and equivalent allocations
+of phase between Alice and Bob. Within each valid interval the sum of six squared
+voltages is a quadratic, whose minimum is evaluated exactly. This implements
+Peter's minimum-voltage objective without a local search across wrapping jumps.
+It minimizes voltage among equivalent solutions, without trading optical error
+for voltage. The phase/frequency fits use numerical multistart optimization, not
+a proof of a global optimum over arbitrary models. If no phase-equivalent solution
+fits the operating margins and measured ranges, the analysis reports that and
+exports diagnostics rather than an out-of-bounds candidate.
 
-## Code ownership
+Periods can change voltage order/sign. S0/S1/S2/S3 denote response roles, not
+ascending voltages. Reflection-equivalent solutions also cannot establish R/L
+handedness. Imports reset label confirmation. Fraction balancing concerns detected
+counts; it does not by itself establish equal optical power, exact quantum-state
+orthogonality, or BB84 security under detector-efficiency imbalance.
 
-`eom_calibration_core.py` holds the calculations; `eom_calibration.py` manages
-forms/reports, and `eom_calibration_figures.py` renders diagnostics. The app has no
-runtime dependency on `EOM_scripts/`. Its existing `calibration_analysis.py`
-forwards notebook imports to the shared core, so the notebook remains usable.
+## Diagnostics and uncertainty
+
+The report saves both R² values, Poisson deviance/dof, an approximate chi-square
+Poisson goodness-of-fit p-value, local parameter covariance, fit bounds, source
+hashes, and the fitted predictions. A p-value below 0.001 is a diagnostic warning,
+not a hardware limit or a claim that the sinusoidal model is physically wrong.
+Drift or excess noise can cause it. Sparse counts and parameter boundaries also
+limit the chi-square approximation. Parameter covariance is a local Poisson
+approximation; it does not account for drift or model discrepancy. In particular,
+the app does not present it as the uncertainty of experimentally verified voltages.
+
+Unidentified fits, a Vpi at its search boundary, very low contrast, unsatisfied
+fraction tolerances, or infeasible voltage margins prevent candidate handoff.
+A residual warning remains visible on an otherwise eligible **unverified**
+candidate so it can be tested independently. Do not adjust tolerances merely to
+obtain a PASS. An unsuccessful new fit never silently loads an older result.
+
+Verification reads every T3 record of a complete polarization session, matches
+all eight exact voltage pairs and physical CH1/CH2, and uses ungated counts.
+It compares measured fractions to the same tolerances frozen in the fit report.
+Exact conditional-binomial Clopper-Pearson intervals receive a Bonferroni
+correction across eight pairs (default simultaneous confidence 95%). All eight
+intervals must lie wholly within their tolerances to pass. This can require more
+counts when a prediction lies close to a tolerance boundary. A failed check can
+mean insufficient counts or an actual deviation: inspect the value and interval.
+Intervals assume stationary independent detection; they do not cover drift or
+voltage errors. Fit and verification conditions are both saved; verification only
+establishes performance in its own conditions. No automatic retuning follows it.
+
+## Files
+
+New fit outputs: `data/eoms/<sweep>/analysis/<analysis timestamp>/`.
+Old flat CSVs retain per-source grouping under `<CSV parent>/analysis/<stem>/`.
+Keep `_sweep.json` and `_points.jsonl` alongside PicoHarp CSVs. Cumulative CSV
+counters are not per-setting counts. Legacy NI files require explicit assumed
+dwell and are marked provisional. At least six voltages per axis are required;
+the Vpi lower bound must exceed the largest scan spacing to avoid unresolved fringes.
+
+- `analysis.json`: model, parameters, covariance, diagnostics, constraints,
+  source provenance, predicted candidate, and transfer eligibility.
+- `predicted_fractions.csv`: eight model predictions, explicitly not measurements.
+- `calibration_for_app.json`: only for eligible candidates; includes diagnostics.
+- PNG/PDF: response fit and residual maps, scan-order residuals, predicted
+  fractions/matrix, and detector-response slices. DPI is editable in Analysis.
+
+Verification outputs stay with the polarization run:
+`data/polarization/<run>/analysis/calibration_verification/<timestamp>/`.
+They include the frozen fit hash, source raw-data hashes/settings, count table,
+verification plot, and an updated transfer carrying the independent check result.
+No raw files or earlier results are overwritten. Nothing is applied to hardware
+or to measurement profiles until an explicit calibration import.
+
+`EOM_scripts/CalibrateEOMVoltages.ipynb` uses this same workflow. Peter's notebook
+and older personal notebooks remain untouched. `eom_calibration_core.py` retains
+the validated loader and legacy API for historical notebooks;
+`eom_model_calibration.py` owns the current fit/optimization,
+`eom_calibration_verify.py` owns independent checks, and
+`eom_calibration_figures.py` renders diagnostics.

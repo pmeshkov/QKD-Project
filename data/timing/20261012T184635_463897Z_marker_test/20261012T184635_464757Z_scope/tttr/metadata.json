@@ -1,0 +1,77 @@
+{
+  "schema": "qkd-marker-test-t3-v1",
+  "status": "completed",
+  "complete": true,
+  "records": 25190,
+  "flags_seen": 0,
+  "config": {
+    "device_index": 0,
+    "serial": "1050578",
+    "binning": 6,
+    "laser_hz": 751879.6992481203,
+    "sync_divider": 1,
+    "sync": {
+      "mode": "edge",
+      "edge": "falling",
+      "level_mv": -60,
+      "offset_ps": 0
+    },
+    "detectors": [
+      {
+        "mode": "edge",
+        "edge": "rising",
+        "level_mv": 200,
+        "offset_ps": 0,
+        "channel": 0
+      },
+      {
+        "mode": "edge",
+        "edge": "rising",
+        "level_mv": 200,
+        "offset_ps": 4500,
+        "channel": 1
+      }
+    ]
+  },
+  "record_format": "GenericT3",
+  "record_type": "0x00010307",
+  "dtype": "little-endian uint32",
+  "requested_seconds": 1.0,
+  "raw_byte_limit": 16777216,
+  "cleanup_errors": [],
+  "hardware": {
+    "model": "PicoHarp 330",
+    "part": "930050",
+    "hardware_version": "1.0",
+    "input_count": 2,
+    "features": 935,
+    "base_resolution_ps": 1.0,
+    "resolution_ps": 64.0,
+    "channel_offsets_ps": {
+      "sync": 0,
+      "inputs": {
+        "0": 0,
+        "1": 4500
+      }
+    },
+    "channel_offsets_note": "Configured SDK values, not measured readbacks; already applied to TTTR.",
+    "histogram_offset_ns": 0,
+    "markers_enabled": true,
+    "event_filter_enabled": false,
+    "extended_deadtime_enabled": false
+  },
+  "dll": "C:\\Program Files\\PicoQuant\\UniHarp\\PH330Lib.dll",
+  "library_version": "2.0",
+  "rates_before": {
+    "host_utc": "2026-10-12T18:46:39.405451+00:00",
+    "sync_hz": 751870,
+    "input_hz": [
+      460,
+      450
+    ],
+    "warnings": 0,
+    "warnings_text": ""
+  },
+  "measured_sync_period_s": 1.33001e-06,
+  "elapsed_ms": 1000.0
+}

@@ -1,6 +1,34 @@
-QKD PLAN — current status (2026-09-28)
+QKD PLAN — current status (2026-10-11)
 Previous plan: docs/planning/plan_before_cleanup_2026-09-28.txt
 Earlier detailed draft: docs/planning/initial_plan_2026-09-20.txt
+
+LATEST AUDIT / NEXT ACTION
+- Bench error -200565 (2026-10-11): replaced 8-bit marker port writes with
+  uint32 writes in the scope/TCSPC test and both BB84 modes. Driver requires
+  32-bit samples even for P0.0 only. Timing and pin allocation are unchanged.
+  Regression mocks now reject byte writes. Hardware retry remains pending.
+- Added EOM / timing marker test: scope-only, bounded short T3 capture, offline
+  spacing checks and scope-backed electronic-loopback offset calibration.
+  BB84 has Use timing marker Yes/No; matching published references load
+  automatically. Laser clock only is no longer labeled Advanced.
+  Next: scope-only at 500 kHz / 1200 ns with the now-connected DB25 breakout,
+  then short detector recordings; independent loopback calibration remains
+  pending. Instructions: pulsed_GUI/EOM_TIMING_SCOPE.md. No hardware run by agent.
+- Marker-tool update: all 182 offline tests passed, including missing/extra
+  markers, overflow decoding, independent-start offsets, raw-data cap and Stop.
+- Completion rechecked 2026-10-09 after the usage interruption: all 165 offline
+  tests passed. Actual NI/PicoHarp marker wiring and timing remain bench tests.
+- Corrected stale randomized voltage profile to the selected polarization
+  candidate. Imports now update polarization and both BB84 modes together;
+  Record checks provenance unless Manual voltages is explicitly selected.
+- Randomized profile/run had CH1 +200 mV FALLING. Restored RISING, matching
+  CH2. Old data is untouched; recheck arrival curves and the gate on new data.
+- Added optional P0.0 -> PH330 CTRL pin 1 / Marker 1, DGND -> pin 14.
+  AO-clocked start/checkpoint/end markers and strict T3 spacing checks are
+  implemented. Breakout has arrived; hardware/offset commissioning is pending.
+  Leave Use timing marker at No until ready. Guide: docs/BB84_TIMING_MARKERS.md.
+- Imported voltages remain candidates; failed validation flags and provisional
+  physical labels must not be mistaken for confirmed calibration.
 
 CONFIRMED BENCH
 - NI USB-6351: AO0 Alice; AO1 Bob; Ctr0/PFI12 -> function generator -> BDL SYNC IN.
@@ -27,12 +55,22 @@ CONFIRMED BENCH
   User confirms QKD PBS outputs remain connected for this measurement.
 
 IMPLEMENTED
-- CalibrateEOMVoltages.ipynb: measured-grid joint Alice/Bob calibration using
-  both detectors and all eight settings, with 50:50/extinction targets.
-  Reads true per-point PicoHarp counts from sidecars (CSV counters cumulative).
-  Includes held-out checks, independent exact-voltage validation, uncertainty,
-  candidate exports and unmeasured refinement suggestions. No hardware control.
-  Latest example sweep does not validate all requested tolerances; refine/retest.
+- 2026-10-11: replaced measured-grid calibration in the main GUI with a joint
+  physical sin^2/cos^2 fit to BOTH detector responses, using all counts/dwell times.
+  Separate amplitudes/backgrounds; no training/held-out split. Eight detected-
+  fraction targets, explicit tolerances, measured-range bounds and default +/-180 V
+  operating limits. Equivalent phase branches minimize sum of six squared volts.
+  Reports residuals, R-squared, Poisson deviance and local covariance; fitted
+  predictions remain distinct from independent measurements. No transfer when
+  targets/margins fail or fit is unidentified. Add Verify fitted voltages using a
+  complete fresh polarization run at the exact settings; no refitting on that run.
+  Shared-workflow CalibrateEOMVoltages.ipynb; Peter/Brandon notebooks untouched.
+  Bench verification still required. See pulsed_GUI/EOM_CALIBRATION_ANALYSIS.md.
+  Offline verification: 171 active-controls tests plus 6 historical-loader tests
+  passed, followed by 13 calibration tests including the added boundary case.
+  Reanalyzed Oct 11 sweeps into new timestamped analysis folders; both
+  show excess Poisson scatter. The 06:19 sweep fails the default 15% extinction
+  requirement (predicted wrong fraction ~15.14%); no app transfer exported.
 - Pulsed / CW g2: both PicoHarp channels, NI clock 500 kHz-1 MHz or manual
   pulsed source through 80 MHz; CW uses T2, pulsed uses T3. Full raw data saved
   under data/g2, offline gating and adjustable correlation window, preview and
@@ -91,8 +129,8 @@ NEXT BENCH STEPS — ONE AT A TIME
    delayed pulse. Then test longer output across multiple USB buffer refills.
    Verify generated counts, PicoHarp flags and cleanup in session.json.
 3. Establish and test NI sample zero relative to PicoHarp SYNC index, e.g. using
-   a hardware marker with verified boundary convention. Adapter/wiring remains
-   unresolved. No marker control is implemented yet. First detection, software
+   hardware markers with verified boundary convention. Control/decoding is now
+   implemented; breakout wiring and bench validation remain. First detection, software
    timestamps and discarding warm-up do NOT establish the origin. A quiet-laser
    start is not required; user rejected that architecture.
 4. Verify switched optical fidelity against a static baseline at the same source
@@ -116,8 +154,8 @@ DATA CONTRACT / REMAINING LIMIT
   Display now defaults to native bins (64 ps in the current recordings), with
   no smoothing. Matching saved six-voltage calibration roles preserve expected
   diagonal ordering after renaming index states; physical names remain provisional.
-- Main GUI now includes EOM calibration analysis using the notebook's shared
-  measured-grid core. Sweep -> analyze -> load six voltages into a measurement
+- Main GUI includes EOM calibration analysis using the shared physical-fit
+  workflow. Sweep -> analyze -> load six voltages into a measurement
   form. Review statistical checks; loading does not start hardware.
 - Recent-run locations persist between launches. Analysis pickers and Use latest
   shortcuts cover calibration, polarization, g2, lifetime and both BB84 modes.

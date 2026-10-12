@@ -1,37 +1,34 @@
-"""Offline calibration workflow shared with the measured-grid notebook."""
+"""Offline joint-response fitting and independent fixed-voltage verification."""
 from datetime import datetime, timezone
 import hashlib
 import json
 import math
 from pathlib import Path
-
 from figure_options import FIELD as DPI_FIELD, validated_dpi
 from record_io import save_json
-from calibration_transfer import payload
 
 TOOL = "EOM calibration analysis"
-ROOT = Path(__file__).resolve().parents[1]
-HELP = ("Offline measured-grid calibration: four Alice voltages and two Bob voltages selected jointly. "
-        "Use a completed sweep CSV; keep its JSON/JSONL sidecars beside it. Candidate selection uses training "
-        "counts only; held-out and optional independent checks remain separate. H/R/V/L names are provisional. "
-        "After reviewing the results, load the six voltages into a measurement form below. No hardware is accessed.")
+FIT, VERIFY = "Fit sweep", "Verify fitted voltages"
+SCHEMA = "qkd-eom-model-calibration-v2"
+HELP = ("Fit both detector responses with one sinusoidal phase, separate amplitudes/backgrounds, and all counts. "
+        "Jointly match eight detected-fraction targets, then minimize the sum of six squared voltages over "
+        "equivalent phase wraps within the measured range and operating limits. The ±180 V defaults are "
+        "editable software margins, not hardware ratings. Load the candidate into Polarization matrix, "
+        "record all eight settings, then Verify fitted voltages using that run. Verification freezes the "
+        "candidate; it never retunes it. Physical labels remain provisional.")
 FORM = [
-    ("action", "Action", "Analyze sweep", ["Analyze sweep"]),
-    ("csv", "Completed calibration sweep (*_Detector_Traces.csv)", "", "file"),
-    ("independent-csv", "Optional independent confirmation sweep (blank = none)", "", "file"),
-    *[(f"alice-{i}-seed", f"Alice S{i} / provisional {s}: search center (EOM V)", str(v), None)
-      for i, (s, v) in enumerate(zip("HRVL", (-165, -61, 43, 147)))],
-    ("bob-0-seed", "Bob setting 1 / H-V candidate: search center (EOM V)", "30", None),
-    ("bob-1-seed", "Bob setting 2 / R-L candidate: search center (EOM V)", "-68", None),
-    ("alice-radius", "Alice search radius around each center (V)", "35", None),
-    ("bob-radius", "Bob search radius around each center (V)", "35", None),
-    ("balance-tolerance", "Allowed error around 0.5 detected fraction", "0.05", None),
+    ("action", "Action", FIT, [FIT, VERIFY]),
+    ("csv", "Fit: completed sweep (*_Detector_Traces.csv)", "", "file"),
+    ("fit-report", "Verify: original fitted analysis.json", "", "file"),
+    ("verification-folder", "Verify: completed polarization run at these exact voltages", "", "directory"),
+    ("alice-limit", "Alice: maximum absolute EOM target voltage (V)", "180", None),
+    ("bob-limit", "Bob: maximum absolute EOM target voltage (V)", "180", None),
+    ("fit-vpi-min", "Fit Vpi lower bound (V; must exceed sweep spacing)", "50", None),
+    ("fit-vpi-max", "Fit Vpi upper bound (V)", "400", None),
+    ("balance-tolerance", "Allowed absolute error around 0.5 detected fraction", "0.05", None),
     ("extinction-tolerance", "Allowed wrong-detector fraction for 0/1 targets", "0.15", None),
-    ("min-counts", "Minimum training photons per voltage pair", "50", None),
-    ("training-fraction", "Fraction of counts used for candidate selection", "0.70", None),
-    ("confidence", "Simultaneous confidence for all eight checks", "0.95", None),
-    ("split-seed", "Fixed count-split seed (do not tune to improve check results)", "20260929", None),
-    ("legacy-dwell", "Legacy NI CSV only: assumed dwell (s; blank = require exact sidecars)", "", None),
+    ("confidence", "Verification: simultaneous confidence for eight fraction checks", "0.95", None),
+    ("legacy-dwell", "Legacy NI CSV only: assumed dwell (s; blank = exact sidecars)", "", None),
     DPI_FIELD,
     ("output", "Optional analysis directory override (blank = beside source run)", "", "directory"),
     ("note", "Analysis notes", "", None),
@@ -44,117 +41,118 @@ def settings(values):
         if not math.isfinite(value) or not low <= value <= high:
             raise ValueError(f"{key} must be between {low:g} and {high:g}.")
         return value
-    def integer(key, low, high):
-        value = int(values[key])
-        if not low <= value <= high:
-            raise ValueError(f"{key} must be an integer between {low} and {high}.")
-        return value
-    if not values.get("csv", "").strip():
-        raise ValueError("Select a completed calibration sweep CSV, or click Use latest.")
-    return dict(csv=str(Path(values["csv"]).resolve()), independent_csv=values.get("independent-csv", "").strip(),
-                alice_seeds=[number(f"alice-{i}-seed", -200, 200) for i in range(4)],
-                bob_seeds=[number(f"bob-{i}-seed", -200, 200) for i in range(2)],
-                alice_radius=number("alice-radius", .001, 400), bob_radius=number("bob-radius", .001, 400),
-                balance_tolerance=number("balance-tolerance", .00001, .49999),
-                extinction_tolerance=number("extinction-tolerance", .00001, .49999),
-                min_counts=integer("min-counts", 1, 10**12),
-                training_fraction=number("training-fraction", .01, .99),
-                confidence=number("confidence", .01, .99999), seed=integer("split-seed", 0, 2**32-1),
-                legacy_dwell=number("legacy-dwell", .000001, 360000) if values.get("legacy-dwell", "").strip() else None,
-                plot_dpi=validated_dpi(values.get("plot-dpi", "300")), output=values["output"], note=values.get("note", ""))
+    action = values.get("action", FIT)
+    if action not in (FIT, VERIFY):
+        raise ValueError("Select Fit sweep or Verify fitted voltages.")
+    for key in (("csv",) if action == FIT else ("fit-report", "verification-folder")):
+        if not values.get(key, "").strip():
+            raise ValueError(f"Select {key}, or click Use latest.")
+    cfg = dict(action=action, output=values.get("output", ""), note=values.get("note", ""),
+               plot_dpi=validated_dpi(values.get("plot-dpi", "300")))
+    if action == VERIFY:
+        return dict(cfg, fit_report=values["fit-report"], verification_folder=values["verification-folder"],
+                    confidence=number("confidence", .5, .99999))
+    cfg.update(csv=str(Path(values["csv"]).resolve()),
+               alice_limit=number("alice-limit", .001, 199.999), bob_limit=number("bob-limit", .001, 199.999),
+               vpi_min=number("fit-vpi-min", .001, 10000), vpi_max=number("fit-vpi-max", .001, 10000),
+               balance_tolerance=number("balance-tolerance", .00001, .49999),
+               extinction_tolerance=number("extinction-tolerance", .00001, .49999),
+               legacy_dwell=number("legacy-dwell", .000001, 360000) if values.get("legacy-dwell", "").strip() else None)
+    if cfg["vpi_min"] >= cfg["vpi_max"]:
+        raise ValueError("Vpi lower bound must be less than upper bound.")
+    return cfg
+
+
+def new_output(root):
+    output = Path(root) / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S_%fZ")
+    output.mkdir(parents=True, exist_ok=False)
+    return output
+
+
+def model_transfer(report, report_path):
+    from calibration_transfer import payload
+    transfer = payload(report["selected"], report["parameters"]["csv"])
+    transfer.pop("heldout_count_check_passed")
+    transfer.update(method="joint-sinusoidal-poisson-v2", analysis_report=str(report_path.resolve()),
+                    csv_sha256=report["source"]["csv_sha256"],
+                    predicted_targets_passed=report["selected"]["predicted_targets_pass"],
+                    poisson_model_check_passed=report["fit"]["poisson_model_check_passed"],
+                    fit_diagnostics=report["fit"]["diagnostics"],
+                    operating_bounds=report["selected"]["operating_bounds"],
+                    status="Fitted candidate for independent bench verification; physical labels unverified")
+    return transfer
 
 
 def analyze(cfg, stop=None):
-    # Lazy imports keep instrument-only controls usable without analysis packages.
-    import pandas as pd
     import eom_calibration_core as cal
-    def check():
-        if stop is not None and stop.is_set():
-            raise KeyboardInterrupt
-    check()
+    import eom_model_calibration as model
+    if cfg.get("action") == VERIFY:
+        from eom_calibration_verify import verify
+        return verify(cfg, stop)
+    model.check_stop(stop)
     print(f"Reading calibration sweep: {cfg['csv']}", flush=True)
     grid = cal.load_sweep(cfg["csv"], cfg["legacy_dwell"])
-    train, heldout = cal.split_counts(grid, cfg["training_fraction"], cfg["seed"])
-    print(f"Searching measured grid: {len(grid.alice)} Alice × {len(grid.bob)} Bob voltages.", flush=True)
-    candidates = cal.search(grid, train, cfg["alice_seeds"], cfg["bob_seeds"],
-                            cfg["alice_radius"], cfg["bob_radius"], cfg["balance_tolerance"],
-                            cfg["extinction_tolerance"], cfg["min_counts"], stop_event=stop)
-    selected = candidates[0]
-    def evaluate(g, candidate, counts):
-        return cal.evaluate(g, candidate, counts, cfg["balance_tolerance"], cfg["extinction_tolerance"], cfg["confidence"])
-    full = evaluate(grid, selected, grid.counts)
-    held = evaluate(grid, selected, heldout)
-    held_pass = bool(grid.exact_counts and held.interval_within_tolerance.all())
-    independent = other = None
-    independent_pass = False
-    conditions_match = None
-    if cfg["independent_csv"]:
-        check()
-        other = cal.load_sweep(cfg["independent_csv"], cfg["legacy_dwell"])
-        if other.provenance["csv_sha256"] == grid.provenance["csv_sha256"]:
-            raise ValueError("Independent validation cannot reuse the same CSV.")
-        independent = evaluate(other, cal.match_candidate(other, selected), other.counts)
-        def conditions(g):
-            saved = g.provenance["acquisition_settings"] or {}
-            return {key: saved.get(key) for key in ("source", "clock", "ph330")}
-        conditions_match = conditions(grid) == conditions(other)
-        independent_pass = bool(grid.exact_counts and other.exact_counts and conditions_match
-                                and independent.interval_within_tolerance.all())
-    check()
-    analysis_root = analysis_directory(grid.path, cfg["output"])
-    output = analysis_root / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S_%fZ")
-    output.mkdir(parents=True, exist_ok=False)
+    print(f"Joint Poisson fit: {len(grid.alice)} Alice x {len(grid.bob)} Bob voltages; all counts used.", flush=True)
+    fit = model.fit_response(grid, cfg["vpi_min"], cfg["vpi_max"], stop)
+    selected, rejection = None, None
+    try:
+        selected = model.choose_voltages(fit, grid, cfg["alice_limit"], cfg["bob_limit"],
+                                        cfg["balance_tolerance"], cfg["extinction_tolerance"], stop)
+    except ValueError as exc:
+        rejection = str(exc)
+    eligible = bool(fit["fit_identified"] and selected and selected["predicted_targets_pass"])
+    if not eligible and rejection is None:
+        rejection = "Unidentified fit or predicted fractions fail target tolerances. No app transfer exported."
+    model.check_stop(stop)
+    output = new_output(analysis_directory(grid.path, cfg["output"]))
     report_path = output / "analysis.json"
-    report = dict(schema="qkd-eom-calibration-analysis-v1", status="writing", parameters=cfg,
-                  source=grid.provenance, selected=selected, target_ch1=cal.TARGET.tolist(),
-                  physical_state_labels_confirmed=False, heldout_count_check_passed=held_pass,
-                  independent_count_check_passed=independent_pass, independent_conditions_match=conditions_match,
-                  independent_source=other.provenance if other else None,
-                  full_data_checks=json.loads(full.to_json(orient="records")),
-                  heldout_checks=json.loads(held.to_json(orient="records")),
-                  helper_sha256=hashlib.sha256(Path(cal.__file__).read_bytes()).hexdigest(),
-                  calibration_target="Detected fractions; no background/efficiency correction")
+    report = dict(schema=SCHEMA, status="writing", parameters=cfg, source=grid.provenance,
+                  fit=fit, selected=selected, target_ch1=cal.TARGET.tolist(), transfer_available=eligible,
+                  rejection_reason=rejection, physical_state_labels_confirmed=False,
+                  independent_count_check_passed=False, measurement_status="Fitted predictions; no independent verification yet",
+                  helper_sha256=hashlib.sha256(Path(model.__file__).read_bytes()).hexdigest(),
+                  calibration_target="Ungated detected fractions; no background subtraction or detector-efficiency correction")
     save_json(report_path, report)
     try:
-        ranking = pd.DataFrame([dict(rank=i+1, training_score=c["score"],
-                                    training_targets_feasible=c["training_point_feasible"],
-                                    **dict(zip(cal.STATES, c["alice_v"])), Bob1=c["bob_v"][0], Bob2=c["bob_v"][1])
-                                for i, c in enumerate(candidates)])
-        ranking.to_csv(output / "training_candidates.csv", index=False)
-        full.to_csv(output / "selected_measured_points.csv", index=False)
-        held.to_csv(output / "heldout_checks.csv", index=False)
-        cal.refinement_plan(grid, selected).to_csv(output / "proposed_refinement_points_UNMEASURED.csv", index=False)
-        if independent is not None:
-            independent.to_csv(output / "independent_checks.csv", index=False)
-        check()
+        table = model.prediction_table(selected, cfg["balance_tolerance"], cfg["extinction_tolerance"]) if selected else None
+        if table is not None:
+            table.to_csv(output / "predicted_fractions.csv", index=False)
+            report["predictions"] = json.loads(table.to_json(orient="records"))
         from eom_calibration_figures import render
-        render(grid, selected, full, held, output, cfg["plot_dpi"], check)
-        check()
-        transfer = payload(selected, grid.path, held_pass, independent_pass)
-        transfer.update(analysis_report=str(report_path.resolve()), csv_sha256=grid.provenance["csv_sha256"])
-        save_json(output / "calibration_for_app.json", transfer)
+        render(grid, fit, selected, table, output, cfg["plot_dpi"], lambda: model.check_stop(stop))
+        model.check_stop(stop)
+        if eligible:
+            save_json(output / "calibration_for_app.json", model_transfer(report, report_path))
         report["status"] = "completed"
         save_json(report_path, report)
     except BaseException as exc:
         report.update(status="interrupted" if isinstance(exc, KeyboardInterrupt) else "error", error=str(exc))
         save_json(report_path, report)
         raise
-    print("Alice [S0/H, S1/R, S2/V, S3/L] (provisional):", selected["alice_v"], flush=True)
-    print("Bob [setting 1/HV, setting 2/RL] (provisional):", selected["bob_v"], flush=True)
-    print(full[["state", "bob_setting", "alice_v", "bob_v", "target_ch1", "measured_ch1"]].to_string(index=False), flush=True)
-    if not selected["training_point_feasible"]:
-        print("No training-feasible set in these windows: candidate is a compromise.", flush=True)
-    print(f"Held-out count check: {'PASS' if held_pass else 'NOT VALIDATED'}. "
-          f"Independent check: {'PASS' if independent_pass else 'NOT VALIDATED'}. Physical labels remain unverified.", flush=True)
-    print(f"Preview image: {(output / 'heldout_check.png').resolve()}", flush=True)
-    print(f"Preview image: {(output / 'selected_matrix.png').resolve()}", flush=True)
+    print(f"Vpi Alice/Bob: {fit['vpi_alice_v']:.3f} / {fit['vpi_bob_v']:.3f} V. "
+          f"Poisson deviance/dof: {fit['reduced_deviance']:.3f}.", flush=True)
+    for diagnostic in fit["diagnostics"]:
+        print("Fit diagnostic: " + diagnostic, flush=True)
+    if not grid.exact_counts:
+        print("Legacy CSV: reconstructed counts depend on assumed dwell; uncertainty is provisional.", flush=True)
+    if selected:
+        print("Alice [S0/H, S1/R, S2/V, S3/L] (provisional):", selected["alice_v"], flush=True)
+        print("Bob [setting 1/HV, setting 2/RL] (provisional):", selected["bob_v"], flush=True)
+        print(table[["state", "bob_setting", "alice_v", "bob_v", "target_ch1", "predicted_ch1"]].to_string(index=False), flush=True)
+    if rejection:
+        print("Candidate NOT accepted: " + rejection, flush=True)
+    else:
+        print("Candidate exported for a fresh eight-setting polarization measurement. Not experimentally validated.", flush=True)
+    print(f"Preview image: {(output / 'response_fit.png').resolve()}", flush=True)
+    if selected:
+        print(f"Preview image: {(output / 'predicted_fractions.png').resolve()}", flush=True)
     print(f"Calibration result: {report_path.resolve()}", flush=True)
-    print(f"Calibration transfer: {(output / 'calibration_for_app.json').resolve()}", flush=True)
+    if eligible:
+        print(f"Calibration transfer: {(output / 'calibration_for_app.json').resolve()}", flush=True)
     return output
 
 
 def analysis_directory(csv, override=""):
-    """New run folders contain analysis/; legacy flat CSVs get per-source grouping."""
     if str(override).strip():
         return Path(override)
     csv = Path(csv).resolve()

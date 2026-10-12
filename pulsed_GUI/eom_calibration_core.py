@@ -1,4 +1,7 @@
-"""Measured-grid EOM calibration. Offline only; no instrument imports.
+"""Validated sweep loading plus legacy measured-grid APIs for old notebooks.
+
+Current calibration uses eom_model_calibration.py; search/split helpers below
+are retained for historical reproducibility, not used by the app. Offline only.
 
 Raw_Count columns in the historical eight-column CSV are cumulative counters.
 PicoHarp *_points.jsonl supplies exact per-dwell counts and exposure times.
