@@ -11,6 +11,7 @@ Close UniHarp before connecting the PicoHarp. Stop other programs that own AO0/A
 | Align beams, adjust EOM biases and laser rate | Live alignment | CH1/CH2/SYNC rates and bounded scrolling traces; no run data saved |
 | Calibrate EOM voltages without moving detector cables | EOM calibration sweep | Notebook-compatible N × N CSV; [instructions](pulsed_GUI/EOM_CALIBRATION_SWEEP.md) |
 | Extract voltages from the sweep and load measurement forms | EOM calibration analysis | Joint sinusoidal fit, minimum-voltage candidates, independent verification and six-voltage handoff; [instructions](pulsed_GUI/EOM_CALIBRATION_ANALYSIS.md) |
+| Refine a calibrated pair by sweeping one EOM | EOM calibration fine-tuning | Single-EOM compensation, fixed-Vpi phase fit and fresh selected-pair verification; [instructions](pulsed_GUI/EOM_FINE_TUNING.md) |
 | Measure two-detector correlations, pulsed or CW | Pulsed / CW g2 | Full raw TTTR, adjustable delay histogram and peak-area/CW normalization; [instructions](pulsed_GUI/G2.md) |
 | Check EOM settling and marker/laser phase | EOM / timing marker test | Scope-only pattern, bounded short T3 tests and reference calibration; [guide](pulsed_GUI/EOM_TIMING_SCOPE.md) |
 | Output a laser trigger clock only | Laser clock only | Configurable Ctr0/PFI12 clock |

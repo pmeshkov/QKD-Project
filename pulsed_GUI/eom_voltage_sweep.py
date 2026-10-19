@@ -102,6 +102,11 @@ def settings(values):
 
 
 def grid(cfg):
+    if "alice_axis" in cfg:
+        for bob in cfg["bob_axis"]:
+            for alice in cfg["alice_axis"]:
+                yield float(alice), float(bob)
+        return
     levels = np.linspace(cfg["voltage_min"], cfg["voltage_max"], cfg["points"])
     for bob in levels:
         for alice in levels:
@@ -173,9 +178,14 @@ def plot_completed(csv_path, cfg):
     return image
 
 
-def run(cfg, stop, *, daq=None, system=None, constants=None, api=None):
+def run(cfg, stop, *, daq=None, system=None, constants=None, api=None, completed_result=None):
     if stop.is_set():
         return 130
+    if "alice_axis" in cfg:
+        for name in ("alice_axis", "bob_axis"):
+            axis = np.asarray(cfg[name], dtype=float)
+            if axis.ndim != 1 or not len(axis) or not np.isfinite(axis).all() or np.any(abs(axis) >= 200):
+                raise ValueError("Custom sweep axes must be finite and strictly inside ±200 target V.")
     if daq is None:
         import nidaqmx as daq
         from nidaqmx import constants
@@ -192,7 +202,8 @@ def run(cfg, stop, *, daq=None, system=None, constants=None, api=None):
     meta = folder / f"{run_id}_sweep.json"
     record = dict(schema="qkd-eom-picoharp-sweep-v1", settings=cfg, status="preparing", complete=False,
                   layout="one-folder-per-sweep-v1",
-                  rows=0, expected_rows=cfg["points"]**2, csv=partial.name, cleanup_errors=[],
+                  rows=0, expected_rows=len(cfg["alice_axis"])*len(cfg["bob_axis"]) if "alice_axis" in cfg else cfg["points"]**2,
+                  csv=partial.name, cleanup_errors=[],
                   raw_counts_meaning="Cumulative detected photons in completed acquisition windows; excludes settling/gaps.",
                   rate_meaning="Actual photons per channel divided by PicoHarp measured dwell seconds.",
                   raw_timestamps_saved=False, ao_zeroed_on_exit=False)
@@ -302,12 +313,17 @@ def run(cfg, stop, *, daq=None, system=None, constants=None, api=None):
         save_json(meta, record)
         print(f"CSV: {(folder / record['csv']).resolve()}", flush=True)
         print(f"Run record: {meta.resolve()}", flush=True)
-        print("Complete CSV is ready: click Analyze last completed sweep in the app." if record["complete"] else
+        print(("Stage counts saved; fine-tuning workflow continues." if "alice_axis" in cfg else
+               "Complete CSV is ready: click Analyze last completed sweep in the app.") if record["complete"] else
               "Sweep incomplete: do not load its partial CSV into the fixed-grid notebook.", flush=True)
     if record["complete"]:
+        if completed_result is not None:
+            completed_result.update(csv=str(completed.resolve()), manifest=str(meta.resolve()),
+                                    points=str(Path(details.name).resolve()))
         try:
-            image = plot_completed(completed, cfg)
-            print(f"Preview image: {image.resolve()}", flush=True)
+            if "alice_axis" not in cfg:
+                image = plot_completed(completed, cfg)
+                print(f"Preview image: {image.resolve()}", flush=True)
         except Exception as exc:
             print(f"CSV saved successfully; optional preview could not be created: {exc}", flush=True)
     return code

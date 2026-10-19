@@ -1,0 +1,156 @@
+{
+  "schema": "qkd-eom-picoharp-sweep-v1",
+  "settings": {
+    "source": "Laser CW (manual)",
+    "device": "Dev1",
+    "clock": null,
+    "ph330": {
+      "device_index": 0,
+      "serial": "1050578",
+      "laser_hz": 2000000,
+      "sync_divider": 1,
+      "binning": 6,
+      "sync": {
+        "mode": "cfd",
+        "edge": "falling",
+        "level_mv": -60,
+        "offset_ps": 0,
+        "zero_cross_mv": -10
+      },
+      "detectors": [
+        {
+          "mode": "edge",
+          "edge": "rising",
+          "level_mv": 200,
+          "offset_ps": 0,
+          "channel": 0
+        },
+        {
+          "mode": "edge",
+          "edge": "rising",
+          "level_mv": 200,
+          "offset_ps": 4500,
+          "channel": 1
+        }
+      ]
+    },
+    "dll": "C:\\Program Files\\PicoQuant\\UniHarp\\PH330Lib.dll",
+    "mode": 2,
+    "duration_ms": 1000,
+    "settle_s": 0.01,
+    "output": "C:\\Users\\nanometa\\Documents\\QKD_Code\\data\\eoms\\fine_tuning\\20261012T221943_070657Z\\local_sweep",
+    "note": "dogshit",
+    "measurement": {
+      "sample_type": "Unspecified",
+      "bandpass_filter": "570 BP",
+      "laser_power": "high"
+    },
+    "points": 21,
+    "plot_dpi": 300,
+    "voltage_min": -200.0,
+    "voltage_max": 200.0,
+    "minimum_scan_seconds": 445.41,
+    "alice_axis": [
+      45.64736254634023,
+      45.747362546340234,
+      45.847362546340236,
+      45.94736254634023,
+      46.04736254634023,
+      46.14736254634023,
+      46.247362546340234,
+      46.347362546340236,
+      46.44736254634023,
+      46.54736254634023,
+      46.64736254634023,
+      46.747362546340234,
+      46.847362546340236,
+      46.94736254634023,
+      47.04736254634023,
+      47.14736254634023,
+      47.247362546340234,
+      47.347362546340236,
+      47.44736254634023,
+      47.54736254634023,
+      47.64736254634023
+    ],
+    "bob_axis": [
+      42.64999406035967,
+      42.74999406035967,
+      42.84999406035967,
+      42.949994060359664,
+      43.049994060359666,
+      43.14999406035967,
+      43.24999406035967,
+      43.34999406035967,
+      43.449994060359664,
+      43.549994060359666,
+      43.64999406035967,
+      43.74999406035967,
+      43.84999406035967,
+      43.949994060359664,
+      44.049994060359666,
+      44.14999406035967,
+      44.24999406035967,
+      44.34999406035967,
+      44.449994060359664,
+      44.549994060359666,
+      44.64999406035967
+    ],
+    "action": "Run fine-tuning + verification",
+    "pair_indices": [
+      2,
+      0
+    ],
+    "mesh_step_v": 0.1,
+    "mesh_half_steps": 10,
+    "voltage_limit": 180.0,
+    "verify_duration_ms": 30000,
+    "confidence": 0.95,
+    "calibration_stage": "local_sweep"
+  },
+  "status": "completed",
+  "complete": true,
+  "layout": "one-folder-per-sweep-v1",
+  "rows": 441,
+  "expected_rows": 441,
+  "csv": "20261012_221943_075338_Detector_Traces.csv",
+  "cleanup_errors": [],
+  "raw_counts_meaning": "Cumulative detected photons in completed acquisition windows; excludes settling/gaps.",
+  "rate_meaning": "Actual photons per channel divided by PicoHarp measured dwell seconds.",
+  "raw_timestamps_saved": false,
+  "ao_zeroed_on_exit": true,
+  "hardware": {
+    "model": "PicoHarp 330",
+    "part": "930050",
+    "hardware_version": "1.0",
+    "input_count": 2,
+    "features": 935,
+    "base_resolution_ps": 1.0,
+    "resolution_ps": null,
+    "channel_offsets_ps": {
+      "sync": 0,
+      "inputs": {
+        "0": 0,
+        "1": 4500
+      }
+    },
+    "channel_offsets_note": "Configured SDK values, not measured readbacks; already applied to TTTR.",
+    "histogram_offset_ns": 0,
+    "markers_enabled": false,
+    "event_filter_enabled": false,
+    "extended_deadtime_enabled": false
+  },
+  "dll_version": "2.0",
+  "rates_before": {
+    "host_utc": "2026-10-12T22:19:45.691670+00:00",
+    "sync_hz": 0,
+    "input_hz": [
+      17150,
+      12030
+    ],
+    "warnings": 0,
+    "warnings_text": ""
+  },
+  "point_details": "20261012_221943_075338_points.jsonl",
+  "host_end_utc": "2026-10-12T22:28:42.158981+00:00"
+}

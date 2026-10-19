@@ -10,6 +10,8 @@ PROFILES = {
     "sweep": ("EOM calibration sweep", "data/eoms", "*_Detector_Traces.csv"),
     "calibration": ("EOM calibration analysis", "data/eoms", "calibration_for_app.json"),
     "fit_report": ("EOM calibration analysis", "data/eoms", "analysis.json"),
+    "global_fit_report": ("EOM calibration analysis", "data/eoms", "analysis.json"),
+    "fine_tuning": ("EOM calibration fine-tuning", "data/eoms/fine_tuning", "analysis.json"),
     "polarization": ("Pulsed polarization", "data/polarization", "session.json"),
     "g2": ("Pulsed / CW g2", "data/g2", "metadata.json"),
     "lifetime": ("CH1 lifetime", "pulsed_GUI/runs/lifetime_ch1", "metadata.json"),
@@ -18,7 +20,9 @@ PROFILES = {
 INPUTS = {("EOM calibration analysis", "csv"): "sweep",
           ("EOM timing scope", "folder"): "timing",
           ("Ordered BB84", "folder"): "bb84_ordered", ("Randomized BB84", "folder"): "bb84_random",
-          ("EOM calibration analysis", "fit-report"): "fit_report",
+          ("EOM calibration analysis", "fit-report"): "global_fit_report",
+          ("EOM calibration fine-tuning", "fit-report"): "global_fit_report",
+          ("EOM calibration fine-tuning", "folder"): "fine_tuning",
           ("EOM calibration analysis", "verification-folder"): "polarization",
           ("Pulsed polarization", "folder"): "polarization",
           ("Pulsed / CW g2", "folder"): "g2", ("CH1 lifetime", "folder"): "lifetime"}
@@ -42,14 +46,23 @@ def valid(kind, path):
 
 def _valid(kind, path):
     path = Path(path)
-    if kind == "fit_report":
+    if kind in ("fit_report", "global_fit_report", "fine_tuning"):
+        if kind == 'fine_tuning':
+            path = path / 'analysis.json'
         data = read(path)
-        return data.get("schema") == "qkd-eom-model-calibration-v2" and data.get("status") == "completed"
+        if kind == 'fine_tuning':
+            return (data.get('schema') in ('qkd-eom-fine-tuning-v1', 'qkd-eom-fine-tuning-v2')
+                    and data.get('status') in ('completed','error','interrupted')
+                    and bool(data.get('fit')) and bool(data.get('local_sweep', {}).get('csv')))
+        schemas = ('qkd-eom-model-calibration-v2', 'qkd-eom-fine-tuning-v1', 'qkd-eom-fine-tuning-v2') if kind == 'fit_report' else ('qkd-eom-model-calibration-v2',)
+        return data.get("schema") in schemas and data.get("status") == "completed"
     if kind == "sweep":
         if not path.is_file() or not path.name.endswith("_Detector_Traces.csv"):
             return False
         meta = path.with_name(path.name.removesuffix("_Detector_Traces.csv") + "_sweep.json")
         data = read(meta)
+        if data.get('settings', {}).get('calibration_stage') in ('local_sweep', 'verification'):
+            return False  # Local patches/single checks must not replace the global-sweep shortcut.
         # Legacy CSVs remain selectable; the analysis requires explicit dwell.
         return not meta.exists() or (data.get("schema") == "qkd-eom-picoharp-sweep-v1"
                                     and data.get("complete") and not data.get("cleanup_errors")
@@ -100,9 +113,11 @@ def roots(kind, settings, root):
     saved = settings.get(tool, {})
     configured = saved.get("output", "") if isinstance(saved, dict) else ""
     result = [Path(configured)] if configured else []
-    if kind in ("calibration", "fit_report"):
+    if kind in ("calibration", "fit_report", "global_fit_report"):
         # Analyses can live under a custom sweep output root or an imported CSV.
         result.extend(roots("sweep", settings, root))
+        if kind != 'global_fit_report':
+            result.extend(roots('fine_tuning', settings, root))
         csv = saved.get("csv", "") if isinstance(saved, dict) else ""
         if csv:
             result.append(Path(csv).parent)
@@ -121,7 +136,7 @@ def latest(kind, settings, root):
             continue
         try:
             for artifact in directory.rglob(PROFILES[kind][2]):
-                path = artifact if kind in ("sweep", "calibration", "fit_report") else artifact.parent
+                path = artifact if kind in ("sweep", "calibration", "fit_report", "global_fit_report") else artifact.parent
                 candidates.append((artifact.stat().st_mtime_ns, path))
         except OSError:
             continue

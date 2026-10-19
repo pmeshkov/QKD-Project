@@ -1,0 +1,19 @@
+{
+  "data_folder": "C:\\Users\\nanometa\\Documents\\QKD_Code\\data\\eoms",
+  "time_axis": "analysis",
+  "latest_per_sweep": false,
+  "only_validated": false,
+  "timezone": "America/New_York",
+  "phase_display": "stored_phi_rad",
+  "figure_dpi": 300,
+  "phase_convention": "Stored phi is the sin-squared argument offset; full retardance offset is 2*phi.",
+  "plotted_analysis_files": [
+    "C:\\Users\\nanometa\\Documents\\QKD_Code\\data\\eoms\\20261011_053438_725072\\analysis\\20261011T064440_427642Z\\analysis.json",
+    "C:\\Users\\nanometa\\Documents\\QKD_Code\\data\\eoms\\20261011_061959_442906\\analysis\\20261011T064448_969182Z\\analysis.json",
+    "C:\\Users\\nanometa\\Documents\\QKD_Code\\data\\eoms\\20261012_181826_524387\\analysis\\20261012T183229_329399Z\\analysis.json",
+    "C:\\Users\\nanometa\\Documents\\QKD_Code\\data\\eoms\\20261012_183431_784007\\analysis\\20261012T183631_082594Z\\analysis.json",
+    "C:\\Users\\nanometa\\Documents\\QKD_Code\\data\\eoms\\20261012_183431_784007\\analysis\\20261012T183725_525911Z\\analysis.json",
+    "C:\\Users\\nanometa\\Documents\\QKD_Code\\data\\eoms\\20261012_181826_524387\\analysis\\20261012T183901_771735Z\\analysis.json",
+    "C:\\Users\\nanometa\\Documents\\QKD_Code\\data\\eoms\\20261012_181826_524387\\analysis\\20261012T183935_313767Z\\analysis.json"
+  ]
+}

@@ -33,7 +33,10 @@ class Grid:
     provenance: dict
 
 
-def load_sweep(path, legacy_dwell_s=None):
+def load_sweep(path, legacy_dwell_s=None, *, single_eom=None):
+    """Load a full grid, or explicitly opt into a one-EOM fine-tuning scan."""
+    if single_eom not in (None, 'alice', 'bob'):
+        raise ValueError('Select Alice or Bob for a single-EOM sweep.')
     path = Path(path).resolve()
     if not path.name.endswith("_Detector_Traces.csv"):
         raise ValueError("Select a completed *_Detector_Traces.csv, not a partial acquisition.")
@@ -91,7 +94,11 @@ def load_sweep(path, legacy_dwell_s=None):
     ordered = grouped.reindex(index)
     if ordered.isna().any().any():
         raise ValueError("Incomplete voltage grid.")
-    if len(alice) < 4 or len(bob) < 2:
+    if single_eom is not None:
+        swept, fixed = (alice, bob) if single_eom == 'alice' else (bob, alice)
+        if len(swept) < 5 or len(fixed) != 1:
+            raise ValueError('A single-EOM sweep needs at least five swept voltages and exactly one fixed voltage.')
+    elif len(alice) < 4 or len(bob) < 2:
         raise ValueError("Need at least four Alice and two Bob voltage values.")
     provenance = dict(csv=str(path), csv_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
                       exact_counts=exact, source=meta["settings"].get("source") if exact else "legacy / unknown",

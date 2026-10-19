@@ -28,6 +28,7 @@ and arrival histogram open after analysis; **Open plots** reopens them.
 | Live alignment | Live PicoHarp rates with adjustable Alice/Bob biases and laser clock | [Live alignment](LIVE_ALIGNMENT.md) |
 | EOM calibration sweep | Adjustable N × N voltage grid (default 60 × 60) with PicoHarp counts and notebook-compatible CSV | [Calibration sweep](EOM_CALIBRATION_SWEEP.md) |
 | EOM calibration analysis | Joint detector-response fit, minimum-voltage selection and independent verification | [Calibration analysis](EOM_CALIBRATION_ANALYSIS.md) |
+| EOM calibration fine-tuning | Sweep Alice or Bob as a compensator, prior-Vpi phase refinement and fresh single-pair verification | [Fine-tuning](EOM_FINE_TUNING.md) |
 | Polarization matrix | Eight static voltage pairs; both detectors; arrival histograms and matrices | [Polarization](PULSED_POLARIZATION.md) |
 | Ordered BB84 | Finite pulse-by-pulse timing and optical test | [BB84 acquisition](BB84.md) |
 | Randomized BB84 | Independently randomized Alice states and Bob bases | [BB84 acquisition](BB84.md) |
@@ -76,6 +77,7 @@ shortcuts. Source filenames remain visible, and no shortcut starts hardware.
 | `eom_timing_scope.py` | Scope timing patterns |
 | `eom_voltage_sweep.py` | Timed PicoHarp counting across the notebook-compatible static calibration grid |
 | `eom_calibration.py`, `eom_model_calibration.py`, `eom_calibration_verify.py` | Shared physical fit, minimum-voltage optimization and independent verification |
+| `eom_fine_tuning.py`, `eom_fine_model.py`, `eom_fine_figures.py` | Single-EOM compensation, voltage-response plots, constrained six-voltage transfer and single-pair verification |
 | `recent_data.py` | Compatible recent-run locations and file-picker defaults |
 | `bb84_analysis.py` | Full-file ordered phase diagnostics and supplied-origin saved-choice comparisons |
 | `g2_measurement.py`, `g2_analysis.py` | Pulsed T3 / CW T2 acquisition and full-file two-detector correlation |

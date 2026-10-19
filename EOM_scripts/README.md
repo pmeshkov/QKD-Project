@@ -38,6 +38,7 @@ in the recommended calibration.
 | [`niDAQ_V_sweep.py`](niDAQ_V_sweep.py) | Two-dimensional Alice/Bob voltage sweep with NI detector counting. Saves a detector-trace CSV when requested at the end. |
 | [`CalibrateEOMVoltages(Peter).ipynb`](CalibrateEOMVoltages(Peter).ipynb) | Original independent detector fits and CH1-based minimum-voltage extraction; preserved for comparison. |
 | [`CalibrateEOMVoltages.ipynb`](CalibrateEOMVoltages.ipynb) | Shared physical-fit workflow, minimum-voltage selection and independent verification. |
+| [`CalibrationParameterHistory.ipynb`](CalibrationParameterHistory.ipynb) | Run All to plot saved Alice Vpi, Bob Vpi and combined static phase over time; optional latest fit per sweep and PNG/PDF/CSV exports. Read-only, no hardware access. |
 | Existing CSV/TXT files | Calibration inputs and recorded outputs; retained as measurement provenance. |
 
 Do not run these AO-controlling scripts alongside experiment modes that already own AO0/AO1. The old `SHUTOFFEOMS.py` helper is now under [`archived/recovery/`](../archived/recovery/README.md): it resets the entire device and is not the normal way to stop an experiment.

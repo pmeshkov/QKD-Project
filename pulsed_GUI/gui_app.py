@@ -17,6 +17,7 @@ import bb84_controls as bb84
 import eom_voltage_sweep as sweep
 import g2_measurement as g2
 import eom_calibration as calibration
+import eom_fine_tuning as fine
 import recent_data
 import timing_marker_controls as timing
 from figure_options import FIELD as DPI_FIELD
@@ -29,6 +30,7 @@ TOOLS = {
     LIVE_COUNTS_TOOL: "laser_clock_eom_counts",
     sweep.TOOL: "eom_voltage_sweep",
     calibration.TOOL: "eom_calibration",
+    fine.TOOL: "eom_fine_tuning",
     g2.TOOL: "g2_measurement",
     "Pulsed polarization": "pulsed_polarization",
     bb84.ORDERED: "bb84_controls",
@@ -67,6 +69,7 @@ COMMON = [
 ]
 SPECS = {
     calibration.TOOL: calibration.FORM,
+    fine.TOOL: fine.FORM,
     g2.TOOL: g2.FORM,
     sweep.TOOL: sweep.FORM,
     bb84.ORDERED: bb84.form("ordered"),
@@ -134,6 +137,7 @@ SPECS = {
 }
 HELP = {
     calibration.TOOL: calibration.HELP,
+    fine.TOOL: fine.HELP,
     g2.TOOL: g2.HELP,
     sweep.TOOL: sweep.HELP,
     bb84.ORDERED: "Alice repeats H, V, R, L; Bob holds H/V for four trials, then R/L for four. " + bb84.HELP,
@@ -154,6 +158,11 @@ def defaults(tool):
 
 
 def field_group(key, tool=None):
+    if tool == fine.TOOL:
+        if key in ('fit-report', 'allow-rejected-prior', 'pair', 'sweep-eom', 'sweep-step', 'sweep-half-steps', 'voltage-limit'):
+            return 'Voltages'
+        if key in ('seconds', 'settle-ms', 'verify-seconds', 'confidence'):
+            return 'Recording'
     if tool == timing.TOOL:
         if key.startswith('reference-') or key == 'marker-every':
             return 'Timing markers'
@@ -180,6 +189,12 @@ def initial_settings(tool, settings):
     """Migrate old profiles and seed new modes without overwriting saved choices."""
     saved = settings.get(tool, settings.get(bb84.LEGACY_NAMES.get(tool), {}))
     saved = dict(saved) if isinstance(saved, dict) else {}
+    if tool == fine.TOOL:
+        if saved.get('action') == 'View saved result':
+            saved['action'] = fine.VIEW
+        for old, new in (('mesh-step', 'sweep-step'), ('mesh-half-steps', 'sweep-half-steps')):
+            if old in saved:
+                saved.setdefault(new, saved.pop(old))
     if tool == timing.TOOL:
         if saved.get("action") == "Output timing pattern":
             saved["action"] = timing.SCOPE
@@ -199,8 +214,8 @@ def initial_settings(tool, settings):
         # Migrate only the former factory path; preserve explicit custom overrides.
         if Path(saved["output"]).resolve() == (ROOT.parent / "data/eoms/calibrations").resolve():
             saved["output"] = ""
-    if tool in (sweep.TOOL, g2.TOOL) and not saved:
-        previous = settings.get("Pulsed polarization", {})
+    if tool in (sweep.TOOL, g2.TOOL, fine.TOOL) and not saved:
+        previous = settings.get(sweep.TOOL, settings.get("Pulsed polarization", {})) if tool == fine.TOOL else settings.get("Pulsed polarization", {})
         if isinstance(previous, dict):
             saved = {k: v for k, v in previous.items() if k in ("dll", "serial", "device-index", "binning")
                      or k.startswith(("sync-", "ch1-", "ch2-"))}
@@ -300,7 +315,7 @@ def arguments(tool, values):
     if tool == calibration.TOOL:
         calibration.settings(values)
         return []
-    if tool in (sweep.TOOL, g2.TOOL):
+    if tool in (sweep.TOOL, g2.TOOL, fine.TOOL):
         return []
     if tool in bb84.MODES:
         return []
@@ -350,6 +365,8 @@ def arguments(tool, values):
 
 
 def execute(tool, values, stop_event, commands=None, samples=None, emit=None):
+    if tool == fine.TOOL:
+        return fine.main(values, stop_event)
     if tool == timing.TOOL:
         if stop_event.is_set():
             return 130
@@ -597,7 +614,11 @@ class App:
             self.inputs.append((button, "normal"))
         if self.current_tool == sweep.TOOL:
             workflow_button("Analyze last completed sweep →", self.open_calibration_analysis)
-        elif self.current_tool == calibration.TOOL:
+        elif self.current_tool in (calibration.TOOL, fine.TOOL):
+            if self.current_tool == calibration.TOOL:
+                workflow_button("Fine-tune one pair from the last global fit →", self.open_fine_tuning)
+            else:
+                workflow_button('Analyze latest saved fine-tuning run →', self.analyze_latest)
             for target in ("Pulsed polarization", bb84.ORDERED, bb84.RANDOM):
                 workflow_button(f"Load last completed result into {display_name(target)} →",
                                 lambda t=target: self.load_calibration(t))
@@ -661,8 +682,8 @@ class App:
         publish(self.settings, data)
         self.remember()
         checks = (f"Predicted targets passed: {data.get('predicted_targets_passed')}; "
-                  f"Poisson model check passed: {data.get('poisson_model_check_passed')}.\n"
-                  if data.get("method") == "joint-sinusoidal-poisson-v2" else
+                  f"Model check passed: {data.get('curve_fit_model_check_passed', data.get('poisson_model_check_passed'))}.\n"
+                  if data.get("method") in ("joint-sinusoidal-poisson-v2", "local-phase-poisson-v1", "local-curve-fit-v1") else
                   "Legacy calibration method; use EOM calibration analysis / Fit sweep for the physical fit.\n")
         self.write("Loaded six EOM target voltages into polarization, Ordered BB84 and Randomized BB84; no hardware changed.\n"
                    f"Source: {data.get('source', 'unspecified')}\n" + checks +
@@ -670,6 +691,8 @@ class App:
                    "H/R/V/L names remain provisional; detector assignments/label confirmation reset.\n")
         for diagnostic in data.get("fit_diagnostics", []):
             self.write(f"Fit diagnostic: {diagnostic}\n")
+        if data.get('method') in ('local-phase-poisson-v1', 'local-curve-fit-v1'):
+            self.write('Fine-tuning verification: selected pair only; all-eight independent check remains unverified.\n')
 
     def load_calibration(self, target):
         if self.running:
@@ -719,10 +742,18 @@ class App:
         self.vars["action"].set(calibration.FIT)
         self.use_recent_input("csv")
 
+    def open_fine_tuning(self):
+        if self.running:
+            return
+        self.tool.set(fine.TOOL)
+        self.change_tool()
+        self.vars['action'].set('Check settings')
+        self.use_recent_input('fit-report')
+
     def analyze_latest(self):
         if self.use_recent_input("folder"):
             if "action" in self.vars:
-                self.vars["action"].set("Analyze saved run")
+                self.vars["action"].set(fine.VIEW if self.current_tool == fine.TOOL else "Analyze saved run")
             self.remember()
             self.write("Review analysis settings, then click Run.\n")
 
@@ -761,7 +792,7 @@ class App:
             enable("binning", source != g2.CW)
             for key in ("eom1-v", "eom2-v"):
                 enable(key, self.vars["control-eoms"].get() == "Yes")
-        if self.current_tool == sweep.TOOL:
+        if self.current_tool in (sweep.TOOL, fine.TOOL):
             source = self.vars["source"].get()
             if source != self._last_source:
                 self.vars["manual-ready"].set("No")
@@ -770,6 +801,18 @@ class App:
             enable("high-ns", source == sweep.NI)
             enable("manual-ready", source != sweep.NI)
             enable("binning", source != sweep.CW)
+            if self.current_tool == fine.TOOL:
+                viewing = self.vars['action'].get() in (fine.VIEW, fine.REFIT)
+                enable('folder', viewing)
+                if viewing:
+                    for key in self.fields:
+                        if key not in ('action', 'folder', 'plot-dpi'):
+                            enable(key, False)
+                    enable('plot-dpi', True)
+                else:
+                    for key in self.fields:
+                        if key not in ('folder', 'laser-hz', 'high-ns', 'manual-ready', 'binning'):
+                            enable(key, True)
         if self.current_tool == "Pulsed polarization":
             from pulsed_polarization import INTERNAL_SOURCES
             source = self.vars["source"].get()
@@ -894,7 +937,7 @@ class App:
             self.apply_clock_button.configure(state="normal")
         self.folder_button.configure(state="disabled")
         self.plot_button.configure(state="disabled")
-        can_stop = tool == timing.TOOL or values.get("action") in (calibration.FIT, calibration.VERIFY, "Analyze sweep", "Run sweep", "Record", bb84.PREPARE, "Output clock", "Output clock + EOM", "Output timing pattern", "Start live controls") or (tool == g2.TOOL and values.get("action") == "Analyze saved run")
+        can_stop = tool == timing.TOOL or values.get("action") in (fine.RUN, fine.VIEW, fine.REFIT, calibration.FIT, calibration.VERIFY, "Analyze sweep", "Run sweep", "Record", bb84.PREPARE, "Output clock", "Output clock + EOM", "Output timing pattern", "Start live controls") or (tool == g2.TOOL and values.get("action") == "Analyze saved run")
         self.stop_button.configure(state="normal" if can_stop else "disabled")
         self.status.set("Running…")
         self.write(f"\n--- {tool}: {values.get('action', 'Analyze')} ---\n")
@@ -1020,7 +1063,13 @@ class App:
             self.run_artifacts["calibration"] = path
         elif prefix == "Calibration result: ":
             self.run_artifacts["fit_report"] = path
+            if self.current_tool == calibration.TOOL:
+                self.run_artifacts['global_fit_report'] = path
+            elif self.current_tool == fine.TOOL:
+                self.run_artifacts['fine_tuning'] = path.parent
         elif prefix in ("Run record: ", "Acquisition record: "):
+            if self.current_tool == fine.TOOL and path.name == 'analysis.json':
+                self.run_artifacts['fine_tuning'] = path.parent
             family = {"Pulsed polarization": "polarization", g2.TOOL: "g2",
                       timing.TOOL: "timing",
                       "CH1 lifetime": "lifetime", "G2 acquisition": "preview",

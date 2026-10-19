@@ -54,7 +54,7 @@ def parse(text):
         raise ValueError("This transfer expects S0/S1/S2/S3 = provisional H/R/V/L; check the notebook convention.")
     if data.get("physical_labels_confirmed") is not False:
         raise ValueError("Notebook transfer must retain physical_labels_confirmed=false; confirm labels separately on the bench.")
-    if data.get("method") == "joint-sinusoidal-poisson-v2":
+    if data.get("method") in ("joint-sinusoidal-poisson-v2", "local-phase-poisson-v1", "local-curve-fit-v1"):
         if data.get("predicted_targets_passed") is not True:
             raise ValueError("The physical-fit candidate did not meet the configured fraction targets.")
         for role in ("alice", "bob"):

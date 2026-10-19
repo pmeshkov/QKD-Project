@@ -1,8 +1,35 @@
-QKD PLAN — current status (2026-10-11)
+QKD PLAN — current status (2026-10-19)
 Previous plan: docs/planning/plan_before_cleanup_2026-09-28.txt
 Earlier detailed draft: docs/planning/initial_plan_2026-09-20.txt
 
 LATEST AUDIT / NEXT ACTION
+- Fine-tuning now uses one scipy.optimize.curve_fit call seeded from the prior
+  global parameters. It refits phase and each detector's amplitude/background;
+  both Vpi values stay fixed. Covariance replaces the phase profile search.
+  Refit saved data applies this offline and preserves original results; new
+  candidates do not inherit old verification. Fresh acquisition still checks
+  the optimized pair separately. All 54 related offline tests passed, including
+  19 fine-tuning tests. Simulated plots checked. No hardware run by agent.
+- Fine-tuning has an explicit rejected-global-candidate override in Voltages
+  (default No). It preserves identified-fit and voltage-bound requirements,
+  records the rejection/override provenance, and retains new-result checks.
+  All 17 fine-tuning tests pass; checked loading an existing rejected report.
+- Fine-tuning now sweeps one selectable EOM (default Bob), holds the other
+  fixed, and applies a common compensation shift only to the swept EOM's
+  settings. Defaults: 11 points at 2 V spacing, 10 s per point, 30 s verification.
+  Saved dwell choices are preserved. New v2 data/plots describe a 1D scan;
+  historical v1 mesh data remain readable. Hardware commissioning is pending.
+  All 203 offline tests pass, including either compensator, phase recovery,
+  exact scan endpoints, preserved fixed-EOM settings, plots and legacy redraw.
+- Added EOM calibration fine-tuning: select a global fit and one pair, acquire
+  a local mesh, fit a common phase correction/rate scale at fixed prior Vpi and
+  detector response shapes, derive six voltages preserving relative phases,
+  and independently verify the selected pair. Default 11x11, 2 V spacing, 1 s
+  per point, 30 s verification; all outputs together in data/eoms/fine_tuning.
+  One-pair verification does not verify all eight settings. Next: bench-test
+  this tool and then measure a full polarization matrix. No hardware run here.
+  Offline regression suite: 196 tests passed, including the new GUI handoff,
+  synthetic phase recovery, voltage limits, low counts, Stop and cleanup.
 - Bench error -200565 (2026-10-11): replaced 8-bit marker port writes with
   uint32 writes in the scope/TCSPC test and both BB84 modes. Driver requires
   32-bit samples even for P0.0 only. Timing and pin allocation are unchanged.

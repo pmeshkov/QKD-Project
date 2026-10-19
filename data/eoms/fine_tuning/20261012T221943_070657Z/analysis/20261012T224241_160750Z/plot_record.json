@@ -1,0 +1,127 @@
+{
+  "schema": "qkd-eom-fine-tuning-plot-v1",
+  "status": "completed",
+  "source_report": "C:\\Users\\nanometa\\Documents\\QKD_Code\\data\\eoms\\fine_tuning\\20261012T221943_070657Z\\analysis.json",
+  "source_report_sha256": "fa1244e133a8b8aff3ab434f9b1783c830ddec188e175886276710a534eef76c",
+  "source": {
+    "csv": "C:\\Users\\nanometa\\Documents\\QKD_Code\\data\\eoms\\fine_tuning\\20261012T221943_070657Z\\local_sweep\\20261012_221943_075338\\20261012_221943_075338_Detector_Traces.csv",
+    "csv_sha256": "6b61ca09f5459d9e25539324c22c2d657c590ba7be36767c3eccb3c610be9470",
+    "exact_counts": true,
+    "source": "Laser CW (manual)",
+    "acquisition_settings": {
+      "source": "Laser CW (manual)",
+      "device": "Dev1",
+      "clock": null,
+      "ph330": {
+        "device_index": 0,
+        "serial": "1050578",
+        "laser_hz": 2000000,
+        "sync_divider": 1,
+        "binning": 6,
+        "sync": {
+          "mode": "cfd",
+          "edge": "falling",
+          "level_mv": -60,
+          "offset_ps": 0,
+          "zero_cross_mv": -10
+        },
+        "detectors": [
+          {
+            "mode": "edge",
+            "edge": "rising",
+            "level_mv": 200,
+            "offset_ps": 0,
+            "channel": 0
+          },
+          {
+            "mode": "edge",
+            "edge": "rising",
+            "level_mv": 200,
+            "offset_ps": 4500,
+            "channel": 1
+          }
+        ]
+      },
+      "dll": "C:\\Program Files\\PicoQuant\\UniHarp\\PH330Lib.dll",
+      "mode": 2,
+      "duration_ms": 1000,
+      "settle_s": 0.01,
+      "output": "C:\\Users\\nanometa\\Documents\\QKD_Code\\data\\eoms\\fine_tuning\\20261012T221943_070657Z\\local_sweep",
+      "note": "dogshit",
+      "measurement": {
+        "sample_type": "Unspecified",
+        "bandpass_filter": "570 BP",
+        "laser_power": "high"
+      },
+      "points": 21,
+      "plot_dpi": 300,
+      "voltage_min": -200.0,
+      "voltage_max": 200.0,
+      "minimum_scan_seconds": 445.41,
+      "alice_axis": [
+        45.64736254634023,
+        45.747362546340234,
+        45.847362546340236,
+        45.94736254634023,
+        46.04736254634023,
+        46.14736254634023,
+        46.247362546340234,
+        46.347362546340236,
+        46.44736254634023,
+        46.54736254634023,
+        46.64736254634023,
+        46.747362546340234,
+        46.847362546340236,
+        46.94736254634023,
+        47.04736254634023,
+        47.14736254634023,
+        47.247362546340234,
+        47.347362546340236,
+        47.44736254634023,
+        47.54736254634023,
+        47.64736254634023
+      ],
+      "bob_axis": [
+        42.64999406035967,
+        42.74999406035967,
+        42.84999406035967,
+        42.949994060359664,
+        43.049994060359666,
+        43.14999406035967,
+        43.24999406035967,
+        43.34999406035967,
+        43.449994060359664,
+        43.549994060359666,
+        43.64999406035967,
+        43.74999406035967,
+        43.84999406035967,
+        43.949994060359664,
+        44.049994060359666,
+        44.14999406035967,
+        44.24999406035967,
+        44.34999406035967,
+        44.449994060359664,
+        44.549994060359666,
+        44.64999406035967
+      ],
+      "action": "Run fine-tuning + verification",
+      "pair_indices": [
+        2,
+        0
+      ],
+      "mesh_step_v": 0.1,
+      "mesh_half_steps": 10,
+      "voltage_limit": 180.0,
+      "verify_duration_ms": 30000,
+      "confidence": 0.95,
+      "calibration_stage": "local_sweep"
+    },
+    "count_method": "PicoHarp per-point sidecar",
+    "legacy_assumed_dwell_s": null,
+    "points_sha256": "2264e8cfc9f6f4abc8ce040df6255baabdfa8c0a1681d2b5b5815f4f61e65163",
+    "manifest_sha256": "ddd0ebcf6eefa6e2233ea5643b8dc0c404aa00ff341840e23bb07a9ba9f6095f"
+  },
+  "plot_dpi": 300,
+  "operation": "Redraw saved counts and frozen fit; no refit, acquisition, or calibration transfer",
+  "color_scale": "Measured local CH1/(CH1+CH2) minimum to maximum"
+}
