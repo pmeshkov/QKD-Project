@@ -1,0 +1,420 @@
+{
+  "schema": "qkd-eom-model-calibration-v2",
+  "status": "completed",
+  "parameters": {
+    "action": "Fit sweep",
+    "output": "",
+    "note": "dogshit / 570 BP / 5uW CW",
+    "plot_dpi": 300,
+    "csv": "C:\\Users\\nanometa\\Documents\\QKD_Code\\data\\eoms\\20261109_223752_468090\\20261109_223752_468090_Detector_Traces.csv",
+    "alice_limit": 180.0,
+    "bob_limit": 180.0,
+    "vpi_min": 50.0,
+    "vpi_max": 400.0,
+    "balance_tolerance": 0.125,
+    "extinction_tolerance": 0.25,
+    "legacy_dwell": null
+  },
+  "source": {
+    "csv": "C:\\Users\\nanometa\\Documents\\QKD_Code\\data\\eoms\\20261109_223752_468090\\20261109_223752_468090_Detector_Traces.csv",
+    "csv_sha256": "379409c79492efdbbacc1c42ab314f352576e7ab4b876a372c3e4d015c63292b",
+    "exact_counts": true,
+    "source": "Laser CW (manual)",
+    "acquisition_settings": {
+      "source": "Laser CW (manual)",
+      "device": "Dev1",
+      "clock": null,
+      "ph330": {
+        "device_index": 0,
+        "serial": "1050578",
+        "laser_hz": 2000000,
+        "sync_divider": 1,
+        "binning": 6,
+        "sync": {
+          "mode": "cfd",
+          "edge": "falling",
+          "level_mv": -60,
+          "offset_ps": 0,
+          "zero_cross_mv": -10
+        },
+        "detectors": [
+          {
+            "mode": "edge",
+            "edge": "rising",
+            "level_mv": 200,
+            "offset_ps": 0,
+            "channel": 0
+          },
+          {
+            "mode": "edge",
+            "edge": "rising",
+            "level_mv": 200,
+            "offset_ps": 4500,
+            "channel": 1
+          }
+        ]
+      },
+      "dll": "C:\\Program Files\\PicoQuant\\UniHarp\\PH330Lib.dll",
+      "mode": 2,
+      "duration_ms": 100,
+      "settle_s": 0.001,
+      "output": "C:\\Users\\nanometa\\Documents\\QKD_Code\\data\\eoms",
+      "note": "emitter 2 g2~0.7",
+      "measurement": {
+        "sample_type": "Emitter",
+        "bandpass_filter": "630 nm 10 nm BP",
+        "laser_power": "244 uW"
+      },
+      "points": 30,
+      "plot_dpi": 300,
+      "voltage_min": -200.0,
+      "voltage_max": 200.0,
+      "minimum_scan_seconds": 90.9
+    },
+    "count_method": "PicoHarp per-point sidecar",
+    "legacy_assumed_dwell_s": null,
+    "points_sha256": "aea8c0c351d1fa9cbe0a23f8fa6dfedabe17f0a4bec63d76a657a865d1d9ae8f",
+    "manifest_sha256": "f81202113df9b41ff21fb853af86a15c58070991f1f2b3f6bc17b301722633b4"
+  },
+  "fit": {
+    "model": "CH1=C1+A1*sin(theta)^2; CH2=C2+A2*cos(theta)^2; theta=kA*VA+kB*VB+phi",
+    "method": "Joint Poisson maximum likelihood using all recorded counts and dwell times",
+    "parameter_names": [
+      "k_alice_rad_per_v",
+      "k_bob_rad_per_v",
+      "phase_rad",
+      "amplitude_ch1_hz",
+      "background_ch1_hz",
+      "amplitude_ch2_hz",
+      "background_ch2_hz"
+    ],
+    "parameters": [
+      0.006851284334306755,
+      0.007265018672324029,
+      1.735753250907026,
+      4459.550417271591,
+      432.4441765419011,
+      2415.8580800743343,
+      322.11662443639733
+    ],
+    "covariance": [
+      [
+        1.1008768876065937e-10,
+        -1.227555746368699e-11,
+        -5.827135508340152e-11,
+        1.3867749592478407e-06,
+        3.585269395827109e-07,
+        -3.92761248905317e-07,
+        -2.882151881025841e-07
+      ],
+      [
+        -1.227555746368695e-11,
+        1.0877680430569433e-10,
+        -3.9629501321756737e-10,
+        4.937244636776177e-06,
+        9.093598141806895e-07,
+        -3.8873850016216386e-07,
+        -1.6943309099193774e-06
+      ],
+      [
+        -5.827135508340572e-11,
+        -3.962950132175641e-10,
+        1.55265247311754e-06,
+        1.019657989957236e-05,
+        4.6564258539991455e-05,
+        4.142111654775232e-05,
+        -7.395055451965794e-05
+      ],
+      [
+        1.3867749592478443e-06,
+        4.937244636776207e-06,
+        1.0196579899558625e-05,
+        182.61064134934742,
+        -41.98816511270251,
+        -0.024686328438682025,
+        -0.08703697461563459
+      ],
+      [
+        3.5852693958271016e-07,
+        9.093598141806777e-07,
+        4.656425853999753e-05,
+        -41.98816511270256,
+        25.945712601241063,
+        -0.003817886535743644,
+        -0.018811974501158176
+      ],
+      [
+        -3.9276124890531914e-07,
+        -3.8873850016216635e-07,
+        4.1421116547751446e-05,
+        -0.024686328438762797,
+        -0.0038178865357322983,
+        109.85616246106454,
+        -27.827745629711988
+      ],
+      [
+        -2.882151881025836e-07,
+        -1.6943309099193736e-06,
+        -7.395055451965937e-05,
+        -0.08703697461558342,
+        -0.018811974501167134,
+        -27.82774562971198,
+        17.476780223149174
+      ]
+    ],
+    "covariance_note": "Local Poisson/Jacobian approximation; no drift or model-discrepancy uncertainty. Boundary amplitudes/backgrounds need care.",
+    "vpi_alice_v": 229.27034555103413,
+    "vpi_bob_v": 216.21366683871298,
+    "period_alice_v": 458.54069110206825,
+    "period_bob_v": 432.42733367742596,
+    "deviance": 3841.776695000988,
+    "degrees_of_freedom": 1793,
+    "reduced_deviance": 2.1426529252654705,
+    "poisson_gof_p_approx": 7.550841442668426e-151,
+    "r_squared": [
+      0.9740516262996933,
+      0.9649713227461416
+    ],
+    "jacobian_rank": 7,
+    "converged_starts": 28,
+    "diagnostics": [
+      "Poisson goodness-of-fit p < 0.001: inspect residual structure, drift and excess noise; model not validated."
+    ],
+    "fit_identified": true,
+    "poisson_model_check_passed": false
+  },
+  "selected": {
+    "alice_v": [
+      180.0,
+      93.50695883198713,
+      -8.394955409454052,
+      -176.63877618648155
+    ],
+    "bob_v": [
+      16.493135430011733,
+      112.59185401576644
+    ],
+    "predicted_ch1": [
+      [
+        0.1400639518886876,
+        0.5232725414786698
+      ],
+      [
+        0.5232725451083136,
+        0.14006395128559848
+      ],
+      [
+        0.9129691251907444,
+        0.5232725482468136
+      ],
+      [
+        0.5232725484659996,
+        0.9129691252493559
+      ]
+    ],
+    "predicted_rates_hz": [
+      [
+        [
+          444.8582250065688,
+          2731.2496814739584
+        ],
+        [
+          2045.9035617778372,
+          1863.9204775201144
+        ]
+      ],
+      [
+        [
+          2045.9035804456907,
+          1863.9204674072378
+        ],
+        [
+          444.8582229597099,
+          2731.2496825827966
+        ]
+      ],
+      [
+        [
+          4665.602563024702,
+          444.7592600543967
+        ],
+        [
+          2045.9035965875105,
+          1863.9204586627807
+        ]
+      ],
+      [
+        [
+          2045.90359771482,
+          1863.9204580520873
+        ],
+        [
+          4665.602563539696,
+          444.75925977541056
+        ]
+      ]
+    ],
+    "sum_squared_voltages": 85364.23298601195,
+    "fraction_rmse": 0.08407661160738697,
+    "predicted_targets_pass": true,
+    "operating_bounds": {
+      "alice": [
+        -180.0,
+        180.0
+      ],
+      "bob": [
+        -180.0,
+        180.0
+      ]
+    },
+    "optimization": "First minimize unweighted squared fraction error across all eight targets; then minimize sum(V\u00b2) across phase-equivalent wraps and common phase allocation. No trade of optical error for lower voltage.",
+    "physical_labels_confirmed": false
+  },
+  "target_ch1": [
+    [
+      0.0,
+      0.5
+    ],
+    [
+      0.5,
+      0.0
+    ],
+    [
+      1.0,
+      0.5
+    ],
+    [
+      0.5,
+      1.0
+    ]
+  ],
+  "transfer_available": true,
+  "rejection_reason": null,
+  "physical_state_labels_confirmed": false,
+  "independent_count_check_passed": false,
+  "measurement_status": "Fitted predictions; no independent verification yet",
+  "helper_sha256": "c64841d099f5a03842815aad9a26a88a975d68062554536d8047eb56feff6a9b",
+  "calibration_target": "Ungated detected fractions; no background subtraction or detector-efficiency correction",
+  "predictions": [
+    {
+      "state": "S0",
+      "bob_setting": 1,
+      "alice_v": 180.0,
+      "bob_v": 16.49313543,
+      "target_ch1": 0.0,
+      "predicted_ch1": 0.1400639519,
+      "absolute_error": 0.1400639519,
+      "predicted_ch1_hz": 444.8582250066,
+      "predicted_ch2_hz": 2731.249681474,
+      "allowed_low": 0.0,
+      "allowed_high": 0.25,
+      "prediction_within_tolerance": true,
+      "measurement_status": "MODEL PREDICTION; exact voltage pair not independently measured"
+    },
+    {
+      "state": "S0",
+      "bob_setting": 2,
+      "alice_v": 180.0,
+      "bob_v": 112.5918540158,
+      "target_ch1": 0.5,
+      "predicted_ch1": 0.5232725415,
+      "absolute_error": 0.0232725415,
+      "predicted_ch1_hz": 2045.9035617778,
+      "predicted_ch2_hz": 1863.9204775201,
+      "allowed_low": 0.375,
+      "allowed_high": 0.625,
+      "prediction_within_tolerance": true,
+      "measurement_status": "MODEL PREDICTION; exact voltage pair not independently measured"
+    },
+    {
+      "state": "S1",
+      "bob_setting": 1,
+      "alice_v": 93.506958832,
+      "bob_v": 16.49313543,
+      "target_ch1": 0.5,
+      "predicted_ch1": 0.5232725451,
+      "absolute_error": 0.0232725451,
+      "predicted_ch1_hz": 2045.9035804457,
+      "predicted_ch2_hz": 1863.9204674072,
+      "allowed_low": 0.375,
+      "allowed_high": 0.625,
+      "prediction_within_tolerance": true,
+      "measurement_status": "MODEL PREDICTION; exact voltage pair not independently measured"
+    },
+    {
+      "state": "S1",
+      "bob_setting": 2,
+      "alice_v": 93.506958832,
+      "bob_v": 112.5918540158,
+      "target_ch1": 0.0,
+      "predicted_ch1": 0.1400639513,
+      "absolute_error": 0.1400639513,
+      "predicted_ch1_hz": 444.8582229597,
+      "predicted_ch2_hz": 2731.2496825828,
+      "allowed_low": 0.0,
+      "allowed_high": 0.25,
+      "prediction_within_tolerance": true,
+      "measurement_status": "MODEL PREDICTION; exact voltage pair not independently measured"
+    },
+    {
+      "state": "S2",
+      "bob_setting": 1,
+      "alice_v": -8.3949554095,
+      "bob_v": 16.49313543,
+      "target_ch1": 1.0,
+      "predicted_ch1": 0.9129691252,
+      "absolute_error": 0.0870308748,
+      "predicted_ch1_hz": 4665.6025630247,
+      "predicted_ch2_hz": 444.7592600544,
+      "allowed_low": 0.75,
+      "allowed_high": 1.0,
+      "prediction_within_tolerance": true,
+      "measurement_status": "MODEL PREDICTION; exact voltage pair not independently measured"
+    },
+    {
+      "state": "S2",
+      "bob_setting": 2,
+      "alice_v": -8.3949554095,
+      "bob_v": 112.5918540158,
+      "target_ch1": 0.5,
+      "predicted_ch1": 0.5232725482,
+      "absolute_error": 0.0232725482,
+      "predicted_ch1_hz": 2045.9035965875,
+      "predicted_ch2_hz": 1863.9204586628,
+      "allowed_low": 0.375,
+      "allowed_high": 0.625,
+      "prediction_within_tolerance": true,
+      "measurement_status": "MODEL PREDICTION; exact voltage pair not independently measured"
+    },
+    {
+      "state": "S3",
+      "bob_setting": 1,
+      "alice_v": -176.6387761865,
+      "bob_v": 16.49313543,
+      "target_ch1": 0.5,
+      "predicted_ch1": 0.5232725485,
+      "absolute_error": 0.0232725485,
+      "predicted_ch1_hz": 2045.9035977148,
+      "predicted_ch2_hz": 1863.9204580521,
+      "allowed_low": 0.375,
+      "allowed_high": 0.625,
+      "prediction_within_tolerance": true,
+      "measurement_status": "MODEL PREDICTION; exact voltage pair not independently measured"
+    },
+    {
+      "state": "S3",
+      "bob_setting": 2,
+      "alice_v": -176.6387761865,
+      "bob_v": 112.5918540158,
+      "target_ch1": 1.0,
+      "predicted_ch1": 0.9129691252,
+      "absolute_error": 0.0870308748,
+      "predicted_ch1_hz": 4665.6025635397,
+      "predicted_ch2_hz": 444.7592597754,
+      "allowed_low": 0.75,
+      "allowed_high": 1.0,
+      "prediction_within_tolerance": true,
+      "measurement_status": "MODEL PREDICTION; exact voltage pair not independently measured"
+    }
+  ]
+}

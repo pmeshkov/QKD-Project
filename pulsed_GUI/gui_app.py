@@ -15,6 +15,8 @@ from pulsed_polarization import FORM as POLARIZATION_FORM, HELP_TEXT as POLARIZA
 from laser_clock_eom_counts import TOOL as LIVE_COUNTS_TOOL, FORM as LIVE_COUNTS_FORM, HELP as LIVE_COUNTS_HELP
 import bb84_controls as bb84
 import eom_voltage_sweep as sweep
+import sweep_one_eom as single_sweep
+import measure_dark_counts as dark_counts
 import g2_measurement as g2
 import eom_calibration as calibration
 import eom_fine_tuning as fine
@@ -29,6 +31,8 @@ DLL = r"C:\Program Files\PicoQuant\UniHarp\PH330Lib.dll"
 TOOLS = {
     LIVE_COUNTS_TOOL: "laser_clock_eom_counts",
     sweep.TOOL: "eom_voltage_sweep",
+    single_sweep.TOOL: "sweep_one_eom",
+    dark_counts.TOOL: "measure_dark_counts",
     calibration.TOOL: "eom_calibration",
     fine.TOOL: "eom_fine_tuning",
     g2.TOOL: "g2_measurement",
@@ -72,6 +76,8 @@ SPECS = {
     fine.TOOL: fine.FORM,
     g2.TOOL: g2.FORM,
     sweep.TOOL: sweep.FORM,
+    single_sweep.TOOL: single_sweep.FORM,
+    dark_counts.TOOL: dark_counts.FORM,
     bb84.ORDERED: bb84.form("ordered"),
     bb84.RANDOM: bb84.form("random"),
     LIVE_COUNTS_TOOL: LIVE_COUNTS_FORM,
@@ -136,6 +142,8 @@ SPECS = {
     ],
 }
 HELP = {
+    single_sweep.TOOL: single_sweep.HELP,
+    dark_counts.TOOL: dark_counts.HELP,
     calibration.TOOL: calibration.HELP,
     fine.TOOL: fine.HELP,
     g2.TOOL: g2.HELP,
@@ -158,6 +166,13 @@ def defaults(tool):
 
 
 def field_group(key, tool=None):
+    if tool == dark_counts.TOOL and key in ('seconds', 'intervals', 'laser-shuttered'):
+        return 'Run'
+    if tool == single_sweep.TOOL:
+        if key in ('sweep-eom', 'fixed-voltage', 'points'):
+            return 'Voltages'
+        if key in ('seconds', 'settle-ms', 'repeats', 'sweep-dead-seconds'):
+            return 'Recording'
     if tool == fine.TOOL:
         if key in ('fit-report', 'allow-rejected-prior', 'pair', 'sweep-eom', 'sweep-step', 'sweep-half-steps', 'voltage-limit'):
             return 'Voltages'
@@ -214,8 +229,8 @@ def initial_settings(tool, settings):
         # Migrate only the former factory path; preserve explicit custom overrides.
         if Path(saved["output"]).resolve() == (ROOT.parent / "data/eoms/calibrations").resolve():
             saved["output"] = ""
-    if tool in (sweep.TOOL, g2.TOOL, fine.TOOL) and not saved:
-        previous = settings.get(sweep.TOOL, settings.get("Pulsed polarization", {})) if tool == fine.TOOL else settings.get("Pulsed polarization", {})
+    if tool in (sweep.TOOL, g2.TOOL, fine.TOOL, single_sweep.TOOL) and not saved:
+        previous = settings.get(sweep.TOOL, settings.get("Pulsed polarization", {})) if tool in (fine.TOOL, single_sweep.TOOL) else settings.get("Pulsed polarization", {})
         if isinstance(previous, dict):
             saved = {k: v for k, v in previous.items() if k in ("dll", "serial", "device-index", "binning")
                      or k.startswith(("sync-", "ch1-", "ch2-"))}
@@ -241,6 +256,13 @@ def initial_settings(tool, settings):
                 if f"alice-{i}-v" in previous:
                     saved[f"alice-{label.lower()}-v"] = previous[f"alice-{i}-v"]
             saved["labels-confirmed"] = "No"  # Bob's physical basis assignment still needs confirmation.
+    if tool == dark_counts.TOOL:
+        if not saved:
+            previous = settings.get(single_sweep.TOOL, settings.get(sweep.TOOL, {}))
+            if isinstance(previous, dict):
+                saved = {key: value for key, value in previous.items()
+                         if key in ('dll', 'serial', 'device-index') or key.startswith(('ch1-', 'ch2-'))}
+        saved['laser-shuttered'] = 'No'
     return saved
 
 
@@ -315,7 +337,7 @@ def arguments(tool, values):
     if tool == calibration.TOOL:
         calibration.settings(values)
         return []
-    if tool in (sweep.TOOL, g2.TOOL, fine.TOOL):
+    if tool in (sweep.TOOL, g2.TOOL, fine.TOOL, single_sweep.TOOL, dark_counts.TOOL):
         return []
     if tool in bb84.MODES:
         return []
@@ -365,6 +387,10 @@ def arguments(tool, values):
 
 
 def execute(tool, values, stop_event, commands=None, samples=None, emit=None):
+    if tool == dark_counts.TOOL:
+        return dark_counts.main(values, stop_event)
+    if tool == single_sweep.TOOL:
+        return single_sweep.main(values, stop_event)
     if tool == fine.TOOL:
         return fine.main(values, stop_event)
     if tool == timing.TOOL:
@@ -792,7 +818,7 @@ class App:
             enable("binning", source != g2.CW)
             for key in ("eom1-v", "eom2-v"):
                 enable(key, self.vars["control-eoms"].get() == "Yes")
-        if self.current_tool in (sweep.TOOL, fine.TOOL):
+        if self.current_tool in (sweep.TOOL, fine.TOOL, single_sweep.TOOL):
             source = self.vars["source"].get()
             if source != self._last_source:
                 self.vars["manual-ready"].set("No")
@@ -908,6 +934,8 @@ class App:
             self.status.set("Check settings")
             return
         self.remember()
+        if tool == dark_counts.TOOL and values.get('action') == 'Record':
+            self.vars['laser-shuttered'].set('No')
         self.running = True
         self.stop_event.clear()
         self.commands = queue.Queue(maxsize=1)

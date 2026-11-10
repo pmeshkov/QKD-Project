@@ -29,6 +29,8 @@ CW = "Laser CW (manual)"
 NI = "NI external"
 HEADER = ["Unix_Timestamp", "Elapsed_Time_s", "EOM0_Target_V", "EOM1_Target_V",
           "Raw_Count0", "Raw_Count1", "Rate0_Hz", "Rate1_Hz"]
+SINGLE_HEADER = ['Point', 'Timestamp_UTC', 'Elapsed_Time_s', 'Alice_Target_V',
+                 'Bob_Target_V', 'Dwell_s', 'CH1_Counts', 'CH2_Counts']
 DATA = Path(__file__).resolve().parents[1] / "data" / "eoms"
 HELP = ("N × N grid, -200 to +200 V on both EOMs; Alice varies fastest. Set the notebook's N to the same value. "
         "Actual photon counts per timed dwell. CW uses T2; pulsed modes use T3. "
@@ -181,11 +183,23 @@ def plot_completed(csv_path, cfg):
 def run(cfg, stop, *, daq=None, system=None, constants=None, api=None, completed_result=None):
     if stop.is_set():
         return 130
+    single_counts = cfg.get('csv_format') == 'single-eom-counts-v1'
+    repeats = cfg.get('repeats', 1) if single_counts else 1
+    dead_s = cfg.get('sweep_dead_s', 0.) if single_counts else 0.
+    if type(repeats) is not int or not 1 <= repeats <= 1_000_000:
+        raise ValueError('Number of sweeps must be an integer between 1 and 1000000.')
+    if not math.isfinite(dead_s) or not 0 <= dead_s <= 3600:
+        raise ValueError('Inter-sweep dead time must be between 0 and 3600 seconds.')
+    single_header = (['Sweep_Number'] if repeats > 1 else []) + SINGLE_HEADER
+    if single_counts and 'alice_axis' not in cfg:
+        raise ValueError('Single-EOM acquisition requires explicit voltage axes.')
     if "alice_axis" in cfg:
         for name in ("alice_axis", "bob_axis"):
             axis = np.asarray(cfg[name], dtype=float)
-            if axis.ndim != 1 or not len(axis) or not np.isfinite(axis).all() or np.any(abs(axis) >= 200):
-                raise ValueError("Custom sweep axes must be finite and strictly inside ±200 target V.")
+            outside = np.any(abs(axis) > 200) if single_counts else np.any(abs(axis) >= 200)
+            if axis.ndim != 1 or not len(axis) or not np.isfinite(axis).all() or outside:
+                raise ValueError('Custom sweep axes must be finite and ' +
+                                 ('within ±200 target V.' if single_counts else 'strictly inside ±200 target V.'))
     if daq is None:
         import nidaqmx as daq
         from nidaqmx import constants
@@ -197,8 +211,9 @@ def run(cfg, stop, *, daq=None, system=None, constants=None, api=None, completed
     run_id = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
     folder = Path(cfg["output"]) / run_id
     folder.mkdir(parents=True, exist_ok=False)
-    partial = folder / f"{run_id}_Detector_Traces.partial.csv"
-    completed = folder / f"{run_id}_Detector_Traces.csv"
+    suffix = 'Single_EOM_Counts' if single_counts else 'Detector_Traces'
+    partial = folder / f"{run_id}_{suffix}.partial.csv"
+    completed = folder / f"{run_id}_{suffix}.csv"
     meta = folder / f"{run_id}_sweep.json"
     record = dict(schema="qkd-eom-picoharp-sweep-v1", settings=cfg, status="preparing", complete=False,
                   layout="one-folder-per-sweep-v1",
@@ -207,6 +222,11 @@ def run(cfg, stop, *, daq=None, system=None, constants=None, api=None, completed
                   raw_counts_meaning="Cumulative detected photons in completed acquisition windows; excludes settling/gaps.",
                   rate_meaning="Actual photons per channel divided by PicoHarp measured dwell seconds.",
                   raw_timestamps_saved=False, ao_zeroed_on_exit=False)
+    if single_counts:
+        record.update(schema='qkd-single-eom-counts-v1', csv_columns=single_header,
+                      expected_rows=record['expected_rows']*repeats,
+                      raw_counts_meaning='Integer photons per detector in each individual dwell; not cumulative. Settling/gaps excluded.')
+        record.pop('rate_meaning')
     save_json(meta, record)
     print(f"Run record: {meta.resolve()}", flush=True)
     ao = clock = stream = details = None
@@ -245,7 +265,7 @@ def run(cfg, stop, *, daq=None, system=None, constants=None, api=None, completed
             raise RuntimeError("PicoHarp SYNC rate does not match selected pulsed laser rate.")
         stream = partial.open("x", newline="", encoding="utf-8")
         writer = csv.writer(stream)
-        writer.writerow(HEADER)
+        writer.writerow(single_header if single_counts else HEADER)
         stream.flush()
         details = (folder / f"{run_id}_points.jsonl").open("x", encoding="utf-8")
         record["point_details"] = Path(details.name).name
@@ -253,18 +273,33 @@ def run(cfg, stop, *, daq=None, system=None, constants=None, api=None, completed
         save_json(meta, record)
         start = time.perf_counter()
         buffer = (ct.c_uint32 * ph.TTREADMAX)()
-        for step, (alice, bob) in enumerate(grid(cfg)):
+        sequence = ((repeat, point, pair) for repeat in range(repeats)
+                    for point, pair in enumerate(grid(cfg)))
+        for step, (repeat, point, (alice, bob)) in enumerate(sequence):
             if stop.is_set():
                 raise KeyboardInterrupt
             ao.write([-alice / 20, -bob / 20], auto_start=True)
+            if repeat > 0 and point == 0:
+                print(f'Sweep {repeat+1}/{repeats}: returned to -200 V; stabilizing for {dead_s:g} s.', flush=True)
+                if stop.wait(dead_s):
+                    raise KeyboardInterrupt
             if stop.wait(cfg["settle_s"]):
                 raise KeyboardInterrupt
             count, duration, nrecords, flags = collect(api, index, cfg, stop, buffer, clock)
             cumulative = [old + new for old, new in zip(cumulative, count)]
             rate = [n / duration for n in count]
-            writer.writerow([time.time(), time.perf_counter() - start, alice, bob, *cumulative, *rate])
+            if single_counts:
+                prefix = [repeat+1] if repeats > 1 else []
+                writer.writerow(prefix + [point+1, datetime.now(timezone.utc).isoformat(timespec='milliseconds'),
+                                 f'{time.perf_counter()-start:.6f}', f'{alice:.9f}', f'{bob:.9f}',
+                                 f'{duration:.9f}', *count])
+            else:
+                writer.writerow([time.time(), time.perf_counter() - start, alice, bob, *cumulative, *rate])
             stream.flush()
-            details.write(json.dumps(dict(step=step, counts=count, seconds=duration, records=nrecords, flags=flags)) + "\n")
+            detail = dict(step=step, counts=count, seconds=duration, records=nrecords, flags=flags)
+            if single_counts and repeats > 1:
+                detail.update(sweep_number=repeat+1, point=point+1)
+            details.write(json.dumps(detail) + "\n")
             details.flush()
             record["rows"] += 1
             print(f"{step+1}/{record['expected_rows']} | Alice {alice:.2f} V, Bob {bob:.2f} V | "
@@ -313,7 +348,8 @@ def run(cfg, stop, *, daq=None, system=None, constants=None, api=None, completed
         save_json(meta, record)
         print(f"CSV: {(folder / record['csv']).resolve()}", flush=True)
         print(f"Run record: {meta.resolve()}", flush=True)
-        print(("Stage counts saved; fine-tuning workflow continues." if "alice_axis" in cfg else
+        print(("Detector counts saved; no analysis performed." if single_counts else
+               "Stage counts saved; fine-tuning workflow continues." if "alice_axis" in cfg else
                "Complete CSV is ready: click Analyze last completed sweep in the app.") if record["complete"] else
               "Sweep incomplete: do not load its partial CSV into the fixed-grid notebook.", flush=True)
     if record["complete"]:

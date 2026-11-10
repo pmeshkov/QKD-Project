@@ -1,0 +1,323 @@
+{
+  "schema": "qkd-static-polarization-v1",
+  "status": "completed",
+  "complete": true,
+  "settings": {
+    "source": "NI external",
+    "device": "Dev1",
+    "clock": {
+      "requested_frequency_hz": 750000.0,
+      "requested_high_ns": 100.0,
+      "nominal_timebase_hz": 100000000,
+      "high_ticks": 10,
+      "low_ticks": 123,
+      "realized_nominal_frequency_hz": 751879.6992481203,
+      "realized_high_ns": 100,
+      "realized_low_ns": 1230,
+      "realized_duty_cycle": 0.07518796992481203
+    },
+    "alice": {
+      "S0": -153.3779686004242,
+      "S1": -55.1561954308791,
+      "S2": 46.64736254634023,
+      "S3": 152.74585609522182
+    },
+    "bob": {
+      "HV": 43.64999406035967,
+      "RL": -53.25319462543751
+    },
+    "mapping": {
+      "HV": "Unassigned",
+      "RL": "Unassigned"
+    },
+    "seconds": 120.0,
+    "settle_s": 0.1,
+    "warmup_s": 1.0,
+    "ph330": {
+      "device_index": 0,
+      "serial": "1050578",
+      "laser_hz": 751879.6992481203,
+      "sync_divider": 1,
+      "binning": 6,
+      "sync": {
+        "mode": "edge",
+        "edge": "falling",
+        "level_mv": -60,
+        "offset_ps": 0
+      },
+      "detectors": [
+        {
+          "mode": "edge",
+          "edge": "rising",
+          "level_mv": 200,
+          "offset_ps": 0,
+          "channel": 0,
+          "label": "CH1 PBS transmitted"
+        },
+        {
+          "mode": "edge",
+          "edge": "rising",
+          "level_mv": 200,
+          "offset_ps": 4500,
+          "channel": 1,
+          "label": "CH2 PBS reflected"
+        }
+      ]
+    },
+    "dll": "C:\\Program Files\\PicoQuant\\UniHarp\\PH330Lib.dll",
+    "note": "emitter 8",
+    "measurement": {
+      "sample_type": "Emitter",
+      "bandpass_filter": "570BP",
+      "laser_power": "1.6uW"
+    },
+    "analysis": {
+      "gate": null,
+      "rebin": 1,
+      "plot_stop_ns": 100.0,
+      "plot_start_ns": 20.0,
+      "plot_dpi": 600,
+      "plot_provisional_labels": true,
+      "plot_diagonal": true,
+      "plot_y_max": 0.0
+    },
+    "calibration_transfer": {
+      "imported_candidate": {
+        "schema": "qkd-eom-calibration-transfer-v1",
+        "units": "EOM target V",
+        "alice_v": [
+          -153.3779686004242,
+          -55.1561954308791,
+          46.64736254634023,
+          152.74585609522182
+        ],
+        "bob_v": [
+          43.64999406035967,
+          -53.25319462543751
+        ],
+        "alice_labels": [
+          "H",
+          "R",
+          "V",
+          "L"
+        ],
+        "bob_order": [
+          "HV candidate (notebook setting 1)",
+          "RL candidate (notebook setting 2)"
+        ],
+        "physical_labels_confirmed": false,
+        "source": "C:\\Users\\nanometa\\Documents\\QKD_Code\\data\\eoms\\20261012_181826_524387\\20261012_181826_524387_Detector_Traces.csv",
+        "independent_count_check_passed": false,
+        "status": "Fitted candidate for independent bench verification; physical labels unverified",
+        "method": "joint-sinusoidal-poisson-v2",
+        "analysis_report": "C:\\Users\\nanometa\\Documents\\QKD_Code\\data\\eoms\\20261012_181826_524387\\analysis\\20261012T183935_313767Z\\analysis.json",
+        "csv_sha256": "8ee7442360759148954ec771be2096c09caaff9426872ffe0ba9accb03f4123d",
+        "predicted_targets_passed": true,
+        "poisson_model_check_passed": false,
+        "fit_diagnostics": [
+          "Poisson goodness-of-fit p < 0.001: inspect residual structure, drift and excess noise; model not validated."
+        ],
+        "operating_bounds": {
+          "alice": [
+            -180.0,
+            180.0
+          ],
+          "bob": [
+            -180.0,
+            180.0
+          ]
+        }
+      },
+      "current_voltages_match_import": true
+    },
+    "hv_gain": -20,
+    "ao_channels": [
+      "ao0",
+      "ao1"
+    ],
+    "exact_excitation_count": null
+  },
+  "device_serial": 38160323,
+  "blocks": [
+    {
+      "number": 1,
+      "alice": "S0",
+      "bob": "HV",
+      "status": "completed",
+      "target_eom_v": [
+        -153.3779686004242,
+        43.64999406035967
+      ],
+      "daq_v": [
+        7.66889843002121,
+        -2.1824997030179834
+      ],
+      "assumed_hv_gain": -20.0,
+      "host_start_utc": "2026-11-08T23:51:59.976760+00:00",
+      "directory": "01_Alice_S0_Bob_HV",
+      "raw_folder": "01_Alice_S0_Bob_HV\\20261108T235203_708727Z",
+      "photon_counts": [
+        7504,
+        13932
+      ]
+    },
+    {
+      "number": 2,
+      "alice": "S0",
+      "bob": "RL",
+      "status": "completed",
+      "target_eom_v": [
+        -153.3779686004242,
+        -53.25319462543751
+      ],
+      "daq_v": [
+        7.66889843002121,
+        2.6626597312718756
+      ],
+      "assumed_hv_gain": -20.0,
+      "host_start_utc": "2026-11-08T23:54:03.781618+00:00",
+      "directory": "02_Alice_S0_Bob_RL",
+      "raw_folder": "02_Alice_S0_Bob_RL\\20261108T235406_476297Z",
+      "photon_counts": [
+        9616,
+        12876
+      ]
+    },
+    {
+      "number": 3,
+      "alice": "S1",
+      "bob": "HV",
+      "status": "completed",
+      "target_eom_v": [
+        -55.1561954308791,
+        43.64999406035967
+      ],
+      "daq_v": [
+        2.757809771543955,
+        -2.1824997030179834
+      ],
+      "assumed_hv_gain": -20.0,
+      "host_start_utc": "2026-11-08T23:56:06.545286+00:00",
+      "directory": "03_Alice_S1_Bob_HV",
+      "raw_folder": "03_Alice_S1_Bob_HV\\20261108T235609_253703Z",
+      "photon_counts": [
+        7070,
+        14350
+      ]
+    },
+    {
+      "number": 4,
+      "alice": "S1",
+      "bob": "RL",
+      "status": "completed",
+      "target_eom_v": [
+        -55.1561954308791,
+        -53.25319462543751
+      ],
+      "daq_v": [
+        2.757809771543955,
+        2.6626597312718756
+      ],
+      "assumed_hv_gain": -20.0,
+      "host_start_utc": "2026-11-08T23:58:09.323440+00:00",
+      "directory": "04_Alice_S1_Bob_RL",
+      "raw_folder": "04_Alice_S1_Bob_RL\\20261108T235812_100949Z",
+      "photon_counts": [
+        7762,
+        13926
+      ]
+    },
+    {
+      "number": 5,
+      "alice": "S2",
+      "bob": "HV",
+      "status": "completed",
+      "target_eom_v": [
+        46.64736254634023,
+        43.64999406035967
+      ],
+      "daq_v": [
+        -2.332368127317012,
+        -2.1824997030179834
+      ],
+      "assumed_hv_gain": -20.0,
+      "host_start_utc": "2026-11-09T00:00:12.168504+00:00",
+      "directory": "05_Alice_S2_Bob_HV",
+      "raw_folder": "05_Alice_S2_Bob_HV\\20261109T000014_852724Z",
+      "photon_counts": [
+        9019,
+        13174
+      ]
+    },
+    {
+      "number": 6,
+      "alice": "S2",
+      "bob": "RL",
+      "status": "completed",
+      "target_eom_v": [
+        46.64736254634023,
+        -53.25319462543751
+      ],
+      "daq_v": [
+        -2.332368127317012,
+        2.6626597312718756
+      ],
+      "assumed_hv_gain": -20.0,
+      "host_start_utc": "2026-11-09T00:02:14.924244+00:00",
+      "directory": "06_Alice_S2_Bob_RL",
+      "raw_folder": "06_Alice_S2_Bob_RL\\20261109T000217_555764Z",
+      "photon_counts": [
+        6799,
+        14027
+      ]
+    },
+    {
+      "number": 7,
+      "alice": "S3",
+      "bob": "HV",
+      "status": "completed",
+      "target_eom_v": [
+        152.74585609522182,
+        43.64999406035967
+      ],
+      "daq_v": [
+        -7.637292804761091,
+        -2.1824997030179834
+      ],
+      "assumed_hv_gain": -20.0,
+      "host_start_utc": "2026-11-09T00:04:17.625390+00:00",
+      "directory": "07_Alice_S3_Bob_HV",
+      "raw_folder": "07_Alice_S3_Bob_HV\\20261109T000420_383406Z",
+      "photon_counts": [
+        10630,
+        12267
+      ]
+    },
+    {
+      "number": 8,
+      "alice": "S3",
+      "bob": "RL",
+      "status": "completed",
+      "target_eom_v": [
+        152.74585609522182,
+        -53.25319462543751
+      ],
+      "daq_v": [
+        -7.637292804761091,
+        2.6626597312718756
+      ],
+      "assumed_hv_gain": -20.0,
+      "host_start_utc": "2026-11-09T00:06:20.463490+00:00",
+      "directory": "08_Alice_S3_Bob_RL",
+      "raw_folder": "08_Alice_S3_Bob_RL\\20261109T000623_192122Z",
+      "photon_counts": [
+        8716,
+        12984
+      ]
+    }
+  ],
+  "ao_zeroed_on_exit": true,
+  "cleanup_errors": [],
+  "note": "Static blocks only. No absolute NI-to-T3 pulse origin claimed.",
+  "host_end_utc": "2026-11-09T00:08:23.277086+00:00"
+}

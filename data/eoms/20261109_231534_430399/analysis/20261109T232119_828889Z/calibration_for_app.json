@@ -1,0 +1,46 @@
+{
+  "schema": "qkd-eom-calibration-transfer-v1",
+  "units": "EOM target V",
+  "alice_v": [
+    88.03883577521287,
+    180.0,
+    -175.60065325825155,
+    -20.313795165066438
+  ],
+  "bob_v": [
+    129.8784606435352,
+    28.635327079672948
+  ],
+  "alice_labels": [
+    "H",
+    "R",
+    "V",
+    "L"
+  ],
+  "bob_order": [
+    "HV candidate (notebook setting 1)",
+    "RL candidate (notebook setting 2)"
+  ],
+  "physical_labels_confirmed": false,
+  "source": "C:\\Users\\nanometa\\Documents\\QKD_Code\\data\\eoms\\20261109_231534_430399\\20261109_231534_430399_Detector_Traces.csv",
+  "independent_count_check_passed": false,
+  "status": "Fitted candidate for independent bench verification; physical labels unverified",
+  "method": "joint-sinusoidal-poisson-v2",
+  "analysis_report": "C:\\Users\\nanometa\\Documents\\QKD_Code\\data\\eoms\\20261109_231534_430399\\analysis\\20261109T232119_828889Z\\analysis.json",
+  "csv_sha256": "60709f1721432bbeab59c21374195cd0a9e87ba2facb03bdaad4abbc3ffee9a2",
+  "predicted_targets_passed": true,
+  "poisson_model_check_passed": false,
+  "fit_diagnostics": [
+    "Poisson goodness-of-fit p < 0.001: inspect residual structure, drift and excess noise; model not validated."
+  ],
+  "operating_bounds": {
+    "alice": [
+      -180.0,
+      180.0
+    ],
+    "bob": [
+      -180.0,
+      180.0
+    ]
+  }
+}

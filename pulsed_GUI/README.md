@@ -25,8 +25,10 @@ and arrival histogram open after analysis; **Open plots** reopens them.
 
 | GUI mode | Purpose | Guide |
 | --- | --- | --- |
+| Measure Dark Counts | Count both detectors over user-defined intervals with required laser-shutter confirmation | [Dark counts](MEASURE_DARK_COUNTS.md) |
 | Live alignment | Live PicoHarp rates with adjustable Alice/Bob biases and laser clock | [Live alignment](LIVE_ALIGNMENT.md) |
 | EOM calibration sweep | Adjustable N × N voltage grid (default 60 × 60) with PicoHarp counts and notebook-compatible CSV | [Calibration sweep](EOM_CALIBRATION_SWEEP.md) |
+| Sweep one EOM | Hold one EOM fixed and sweep the other from −200 to +200 V; per-dwell detector counts in CSV, no analysis | [Single-EOM sweep](SWEEP_ONE_EOM.md) |
 | EOM calibration analysis | Joint detector-response fit, minimum-voltage selection and independent verification | [Calibration analysis](EOM_CALIBRATION_ANALYSIS.md) |
 | EOM calibration fine-tuning | Sweep Alice or Bob as a compensator, prior-Vpi phase refinement and fresh single-pair verification | [Fine-tuning](EOM_FINE_TUNING.md) |
 | Polarization matrix | Eight static voltage pairs; both detectors; arrival histograms and matrices | [Polarization](PULSED_POLARIZATION.md) |

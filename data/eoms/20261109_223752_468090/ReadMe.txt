@@ -1,0 +1,1 @@
+The metadata here for the source is wrong. The source is an emitter, what I have been calling "emitter two" today, and it has g2~0.7, and is a pretty bright emitter. See lab notebook and other data on this emitter for extra details. This is from 11/9/26

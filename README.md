@@ -8,8 +8,10 @@ Close UniHarp before connecting the PicoHarp. Stop other programs that own AO0/A
 
 | Goal | Mode / tool | Output |
 | --- | --- | --- |
+| Measure detector dark counts with the laser shuttered | Measure Dark Counts | Per-interval CH1/CH2 counts in CSV; [instructions](pulsed_GUI/MEASURE_DARK_COUNTS.md) |
 | Align beams, adjust EOM biases and laser rate | Live alignment | CH1/CH2/SYNC rates and bounded scrolling traces; no run data saved |
 | Calibrate EOM voltages without moving detector cables | EOM calibration sweep | Notebook-compatible N × N CSV; [instructions](pulsed_GUI/EOM_CALIBRATION_SWEEP.md) |
+| Sweep one EOM while holding the other fixed | Sweep one EOM | Full −200 to +200 V sweep; configurable points/dwell, per-point CH1/CH2 counts in CSV; [instructions](pulsed_GUI/SWEEP_ONE_EOM.md) |
 | Extract voltages from the sweep and load measurement forms | EOM calibration analysis | Joint sinusoidal fit, minimum-voltage candidates, independent verification and six-voltage handoff; [instructions](pulsed_GUI/EOM_CALIBRATION_ANALYSIS.md) |
 | Refine a calibrated pair by sweeping one EOM | EOM calibration fine-tuning | Single-EOM compensation, fixed-Vpi phase fit and fresh selected-pair verification; [instructions](pulsed_GUI/EOM_FINE_TUNING.md) |
 | Measure two-detector correlations, pulsed or CW | Pulsed / CW g2 | Full raw TTTR, adjustable delay histogram and peak-area/CW normalization; [instructions](pulsed_GUI/G2.md) |
